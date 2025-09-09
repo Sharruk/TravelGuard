@@ -17,7 +17,7 @@ export default function TouristMap({ tourist }: TouristMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
-  const { data: geoZones = [] } = useQuery({
+  const { data: geoZones = [] } = useQuery<GeoZone[]>({
     queryKey: ["/api/geo-zones"],
   });
 

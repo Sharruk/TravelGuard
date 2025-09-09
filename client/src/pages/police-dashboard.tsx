@@ -38,17 +38,22 @@ export default function PoliceDashboard() {
     }
   }, [user.id, user.role, setLocation]);
 
-  const { data: tourists = [] } = useQuery({
+  const { data: tourists = [] } = useQuery<Tourist[]>({
     queryKey: ["/api/police/tourists"],
     enabled: !!user.id,
   });
 
-  const { data: alerts = [] } = useQuery({
+  const { data: alerts = [] } = useQuery<Alert[]>({
     queryKey: ["/api/police/alerts"],
     enabled: !!user.id,
   });
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<{
+    activeTourists: number;
+    activeAlerts: number;
+    highRiskZones: number;
+    averageSafetyScore: string;
+  }>({
     queryKey: ["/api/police/stats"],
     enabled: !!user.id,
   });
@@ -255,7 +260,7 @@ export default function PoliceDashboard() {
                             </p>
                             <p className="text-sm text-muted-foreground">{alert.description}</p>
                             <p className="text-xs text-muted-foreground">
-                              {new Date(alert.createdAt).toLocaleString()}
+                              {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : "Unknown"}
                             </p>
                           </div>
                           <Button variant="link" size="sm" data-testid={`button-view-incident-${alert.id}`}>
@@ -345,7 +350,7 @@ export default function PoliceDashboard() {
                               {tourist.touristId}
                             </td>
                             <td className="p-4" data-testid={`tourist-name-${tourist.id}`}>
-                              {tourist.userId}
+                              Tourist {tourist.touristId || tourist.userId}
                             </td>
                             <td className="p-4" data-testid={`tourist-location-${tourist.id}`}>
                               {tourist.currentLocation}
@@ -361,7 +366,7 @@ export default function PoliceDashboard() {
                               </Badge>
                             </td>
                             <td className="p-4 text-sm text-muted-foreground">
-                              {new Date(tourist.lastUpdate).toLocaleString()}
+                              {tourist.lastUpdate ? new Date(tourist.lastUpdate).toLocaleString() : "Unknown"}
                             </td>
                             <td className="p-4">
                               <div className="flex space-x-2">
@@ -410,13 +415,13 @@ export default function PoliceDashboard() {
                               {alert.type.toUpperCase()} ALERT - {alert.severity.toUpperCase()} PRIORITY
                             </h3>
                             <p className="text-sm">Tourist ID: {alert.touristId}</p>
-                            <p className="text-sm text-muted-foreground">Location: {alert.location}</p>
+                            <p className="text-sm text-muted-foreground">Location: {alert.location || "Unknown"}</p>
                             <p className="text-sm text-muted-foreground">
-                              Triggered: {new Date(alert.createdAt).toLocaleString()}
+                              Triggered: {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : "Unknown"}
                             </p>
                             <div className="flex space-x-2 mt-2">
-                              <Badge className={getStatusColor(alert.status)} data-testid={`alert-status-${alert.id}`}>
-                                {alert.status.toUpperCase()}
+                              <Badge className={getStatusColor(alert.status || "unknown")} data-testid={`alert-status-${alert.id}`}>
+                                {(alert.status || "unknown").toUpperCase()}
                               </Badge>
                             </div>
                           </div>

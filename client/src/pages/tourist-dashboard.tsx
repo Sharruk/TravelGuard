@@ -26,17 +26,17 @@ export default function TouristDashboard() {
     }
   }, [user.id, setLocation]);
 
-  const { data: tourist } = useQuery({
+  const { data: tourist } = useQuery<Tourist>({
     queryKey: ["/api/tourist/profile", user.id],
     enabled: !!user.id,
   });
 
-  const { data: alerts } = useQuery({
-    queryKey: ["/api/tourist/alerts", storedTourist.touristId],
-    enabled: !!storedTourist.touristId,
+  const { data: alerts } = useQuery<Alert[]>({
+    queryKey: ["/api/tourist/alerts", storedTourist?.touristId],
+    enabled: !!storedTourist?.touristId,
   });
 
-  const currentTourist = tourist || storedTourist;
+  const currentTourist = tourist || storedTourist || {} as Tourist;
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -167,7 +167,7 @@ export default function TouristDashboard() {
                 </div>
                 <div className="text-center">
                   <Badge className={getStatusColor(currentTourist?.status || "safe")} data-testid="badge-zone-status">
-                    {currentTourist?.status?.charAt(0).toUpperCase() + currentTourist?.status?.slice(1) || "Safe"}
+                    {(currentTourist?.status || "safe").charAt(0).toUpperCase() + (currentTourist?.status || "safe").slice(1)}
                   </Badge>
                   <p className="text-sm text-muted-foreground mt-1">Current Zone</p>
                 </div>
@@ -208,7 +208,7 @@ export default function TouristDashboard() {
                         <p className="font-medium">{alert.type.charAt(0).toUpperCase() + alert.type.slice(1)} Alert</p>
                         <p className="text-sm text-muted-foreground">{alert.description}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(alert.createdAt).toLocaleString()}
+                          {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : "Unknown"}
                         </p>
                       </div>
                     </div>

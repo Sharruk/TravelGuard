@@ -18,7 +18,7 @@ export default function PoliceMap({ tourists, alerts }: PoliceMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
-  const { data: geoZones = [] } = useQuery({
+  const { data: geoZones = [] } = useQuery<GeoZone[]>({
     queryKey: ["/api/geo-zones"],
   });
 
@@ -77,7 +77,7 @@ export default function PoliceMap({ tourists, alerts }: PoliceMapProps) {
               Location: ${tourist.currentLocation}<br>
               Safety Score: ${tourist.safetyScore}<br>
               Status: ${tourist.status}<br>
-              Last Update: ${new Date(tourist.lastUpdate).toLocaleString()}
+              Last Update: ${tourist.lastUpdate ? new Date(tourist.lastUpdate).toLocaleString() : "Unknown"}
             `);
         }
       });
@@ -142,7 +142,7 @@ export default function PoliceMap({ tourists, alerts }: PoliceMapProps) {
               Severity: ${alert.severity}<br>
               Location: ${alert.location}<br>
               Status: ${alert.status}<br>
-              Time: ${new Date(alert.createdAt).toLocaleString()}
+              Time: ${alert.createdAt ? new Date(alert.createdAt).toLocaleString() : "Unknown"}
             `);
         }
       });
