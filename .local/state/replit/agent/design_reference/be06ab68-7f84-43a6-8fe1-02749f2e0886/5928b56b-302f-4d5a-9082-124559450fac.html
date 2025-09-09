@@ -1,0 +1,1283 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeTourism - Tourist Safety Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                borderRadius: {
+                    lg: "var(--radius)",
+                    md: "calc(var(--radius) - 2px)",
+                    sm: "calc(var(--radius) - 4px)",
+                },
+                colors: {
+                    background: "var(--background)",
+                    foreground: "var(--foreground)",
+                    card: {
+                        DEFAULT: "var(--card)",
+                        foreground: "var(--card-foreground)",
+                    },
+                    primary: {
+                        DEFAULT: "var(--primary)",
+                        foreground: "var(--primary-foreground)",
+                    },
+                    secondary: {
+                        DEFAULT: "var(--secondary)",
+                        foreground: "var(--secondary-foreground)",
+                    },
+                    muted: {
+                        DEFAULT: "var(--muted)",
+                        foreground: "var(--muted-foreground)",
+                    },
+                    accent: {
+                        DEFAULT: "var(--accent)",
+                        foreground: "var(--accent-foreground)",
+                    },
+                    destructive: {
+                        DEFAULT: "var(--destructive)",
+                        foreground: "var(--destructive-foreground)",
+                    },
+                    success: {
+                        DEFAULT: "var(--success)",
+                        foreground: "var(--success-foreground)",
+                    },
+                    warning: {
+                        DEFAULT: "var(--warning)",
+                        foreground: "var(--warning-foreground)",
+                    },
+                    border: "var(--border)",
+                    input: "var(--input)",
+                    ring: "var(--ring)",
+                },
+                fontFamily: {
+                    sans: ["Roboto", "sans-serif"],
+                }
+            },
+        }
+    };
+    </script>
+    <style>
+        :root {
+            --background: hsl(0 0% 100%);
+            --foreground: hsl(222 84% 4.9%);
+            --card: hsl(0 0% 100%);
+            --card-foreground: hsl(222 84% 4.9%);
+            --primary: hsl(211 100% 43%);
+            --primary-foreground: hsl(210 40% 98%);
+            --secondary: hsl(36 100% 50%);
+            --secondary-foreground: hsl(222 84% 4.9%);
+            --muted: hsl(210 40% 96%);
+            --muted-foreground: hsl(215 16% 47%);
+            --accent: hsl(210 40% 96%);
+            --accent-foreground: hsl(222 84% 4.9%);
+            --destructive: hsl(0 72% 51%);
+            --destructive-foreground: hsl(210 40% 98%);
+            --success: hsl(122 39% 49%);
+            --success-foreground: hsl(210 40% 98%);
+            --warning: hsl(36 100% 50%);
+            --warning-foreground: hsl(222 84% 4.9%);
+            --border: hsl(214 32% 91%);
+            --input: hsl(214 32% 91%);
+            --ring: hsl(215 20% 65%);
+            --radius: 0.5rem;
+        }
+        
+        .hide { display: none !important; }
+        .show { display: block !important; }
+        
+        /* Custom map styles */
+        .map-container {
+            height: 400px;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        
+        .leaflet-container {
+            height: 100%;
+            width: 100%;
+        }
+        
+        /* Pulse animation for panic button */
+        @keyframes pulse-red {
+            0%, 100% {
+                transform: scale(1);
+                background-color: hsl(0 72% 51%);
+            }
+            50% {
+                transform: scale(1.05);
+                background-color: hsl(0 82% 61%);
+            }
+        }
+        
+        .pulse-red {
+            animation: pulse-red 2s infinite;
+        }
+        
+        /* Loading spinner */
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--primary);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-background text-foreground font-sans">
+
+<!-- @COMPONENT: AppContainer -->
+<div id="app" class="min-h-screen">
+    
+    <!-- @COMPONENT: LoginScreen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-blue-600 p-4">
+        <div class="bg-card rounded-lg shadow-2xl p-8 w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-shield-alt text-2xl text-primary-foreground"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-foreground">SafeTourism</h1>
+                <p class="text-muted-foreground mt-2">Tourist Safety Management System</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="flex gap-2">
+                    <button onclick="showUserInterface('tourist')" class="flex-1 bg-primary text-primary-foreground py-3 px-4 rounded-md font-medium hover:bg-blue-600 transition-colors">
+                        <i class="fas fa-user mr-2"></i>Tourist Login
+                    </button>
+                    <button onclick="showUserInterface('police')" class="flex-1 bg-secondary text-secondary-foreground py-3 px-4 rounded-md font-medium hover:bg-orange-600 transition-colors">
+                        <i class="fas fa-badge mr-2"></i>Police Login
+                    </button>
+                </div>
+                
+                <div class="relative">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-border"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="bg-card px-2 text-muted-foreground">Demo Mode</span>
+                    </div>
+                </div>
+                
+                <div class="text-sm text-muted-foreground text-center">
+                    <p>Tourist Demo: Full mobile experience with safety features</p>
+                    <p>Police Demo: Dashboard with real-time monitoring</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: LoginScreen -->
+
+    <!-- @COMPONENT: TouristInterface -->
+    <div id="touristInterface" class="hide">
+        <!-- Mobile Navigation Header -->
+        <header class="bg-primary text-primary-foreground p-4 shadow-lg">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-shield-alt text-xl"></i>
+                    <div>
+                        <h1 class="font-bold">SafeTourism</h1>
+                        <p class="text-xs opacity-90" data-bind="user.location">Goa, India</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="text-right">
+                        <p class="text-xs opacity-90">Safety Score</p>
+                        <p class="font-bold text-lg" data-bind="user.safetyScore">87</p>
+                    </div>
+                    <button onclick="showLoginScreen()" class="p-2 hover:bg-blue-600 rounded">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Quick Actions Bar -->
+        <div class="bg-card border-b p-4">
+            <div class="flex justify-between items-center gap-4">
+                <!-- Emergency Panic Button -->
+                <button onclick="triggerPanicAlert()" class="bg-destructive text-destructive-foreground px-6 py-3 rounded-lg font-bold pulse-red flex-1 max-w-48">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    PANIC
+                </button>
+                
+                <!-- Location Sharing Toggle -->
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium">Location Sharing</label>
+                    <button onclick="toggleLocationSharing()" id="locationToggle" class="relative inline-block w-10 h-6 bg-success rounded-full">
+                        <span class="absolute left-4 top-1 w-4 h-4 bg-white rounded-full transition-transform"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <nav class="bg-card border-b">
+            <div class="flex">
+                <button onclick="showTouristTab('dashboard')" id="dashboardTab" class="flex-1 py-3 px-4 text-center border-b-2 border-primary font-medium text-primary">
+                    <i class="fas fa-home mr-1"></i>Dashboard
+                </button>
+                <button onclick="showTouristTab('map')" id="mapTab" class="flex-1 py-3 px-4 text-center border-b-2 border-transparent text-muted-foreground hover:text-foreground">
+                    <i class="fas fa-map mr-1"></i>Map
+                </button>
+                <button onclick="showTouristTab('profile')" id="profileTab" class="flex-1 py-3 px-4 text-center border-b-2 border-transparent text-muted-foreground hover:text-foreground">
+                    <i class="fas fa-user mr-1"></i>Profile
+                </button>
+            </div>
+        </nav>
+
+        <!-- Dashboard Tab -->
+        <div id="touristDashboard" class="p-4 space-y-6">
+            <!-- Safety Status Card -->
+            <div class="bg-card rounded-lg border p-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold">Safety Status</h2>
+                    <div class="w-3 h-3 bg-success rounded-full"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="text-center">
+                        <p class="text-2xl font-bold text-success">87</p>
+                        <p class="text-sm text-muted-foreground">Safety Score</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-2xl font-bold text-primary">Safe</p>
+                        <p class="text-sm text-muted-foreground">Current Zone</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Location Card -->
+            <div class="bg-card rounded-lg border p-4">
+                <h3 class="font-semibold mb-3">Current Location</h3>
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-map-marker-alt text-primary"></i>
+                    <div>
+                        <p class="font-medium" data-bind="user.currentLocation">Calangute Beach, Goa</p>
+                        <p class="text-sm text-muted-foreground">Last updated: 2 minutes ago</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Alerts -->
+            <div class="bg-card rounded-lg border p-4">
+                <h3 class="font-semibold mb-3">Recent Alerts</h3>
+                <div class="space-y-3">
+                    <div class="flex items-start space-x-3 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                        <i class="fas fa-exclamation-triangle text-warning mt-1"></i>
+                        <div>
+                            <p class="font-medium">Geo-fence Warning</p>
+                            <p class="text-sm text-muted-foreground">Approaching restricted area near Old Goa</p>
+                            <p class="text-xs text-muted-foreground">15 minutes ago</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-3 p-3 bg-muted rounded-lg">
+                        <i class="fas fa-info-circle text-primary mt-1"></i>
+                        <div>
+                            <p class="font-medium">Weather Update</p>
+                            <p class="text-sm text-muted-foreground">Monsoon alert for coastal areas</p>
+                            <p class="text-xs text-muted-foreground">2 hours ago</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Emergency Contacts -->
+            <div class="bg-card rounded-lg border p-4">
+                <h3 class="font-semibold mb-3">Emergency Contacts</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span>Tourist Helpline</span>
+                        <a href="tel:1363" class="text-primary font-medium">1363</a>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span>Police Emergency</span>
+                        <a href="tel:100" class="text-primary font-medium">100</a>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span>Medical Emergency</span>
+                        <a href="tel:108" class="text-primary font-medium">108</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map Tab -->
+        <div id="touristMap" class="hide p-4">
+            <div class="space-y-4">
+                <div class="bg-card rounded-lg border p-4">
+                    <h3 class="font-semibold mb-3">Live Location Map</h3>
+                    <div id="touristMapContainer" class="map-container"></div>
+                </div>
+                
+                <!-- Map Legend -->
+                <div class="bg-card rounded-lg border p-4">
+                    <h4 class="font-medium mb-3">Map Legend</h4>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-4 h-4 bg-primary rounded-full"></div>
+                            <span>Your Location</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-4 h-4 bg-success rounded-full"></div>
+                            <span>Safe Zone</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-4 h-4 bg-warning rounded-full"></div>
+                            <span>Caution Zone</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-4 h-4 bg-destructive rounded-full"></div>
+                            <span>High Risk Zone</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Tab -->
+        <div id="touristProfile" class="hide p-4 space-y-6">
+            <!-- Digital Tourist ID -->
+            <div class="bg-card rounded-lg border p-4">
+                <h3 class="font-semibold mb-4">Digital Tourist ID</h3>
+                <div class="bg-gradient-to-r from-primary to-blue-600 text-primary-foreground p-4 rounded-lg">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <p class="text-sm opacity-90">Tourist ID</p>
+                            <p class="font-mono text-lg" data-bind="user.touristId">TID-2024-001523</p>
+                        </div>
+                        <i class="fas fa-qrcode text-2xl"></i>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="opacity-90">Name</p>
+                            <p class="font-medium" data-bind="user.name">Priya Sharma</p>
+                        </div>
+                        <div>
+                            <p class="opacity-90">Nationality</p>
+                            <p class="font-medium" data-bind="user.nationality">Indian</p>
+                        </div>
+                        <div>
+                            <p class="opacity-90">Valid Until</p>
+                            <p class="font-medium" data-bind="user.validUntil">Dec 30, 2024</p>
+                        </div>
+                        <div>
+                            <p class="opacity-90">Status</p>
+                            <p class="font-medium text-green-200">Active</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trip Itinerary -->
+            <div class="bg-card rounded-lg border p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold">Trip Itinerary</h3>
+                    <button class="text-primary hover:text-blue-600">
+                        <i class="fas fa-plus mr-1"></i>Add
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+                        <div class="w-2 h-2 bg-primary rounded-full"></div>
+                        <div class="flex-1">
+                            <p class="font-medium">Calangute Beach</p>
+                            <p class="text-sm text-muted-foreground">Today, 9:00 AM - 2:00 PM</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+                        <div class="w-2 h-2 bg-muted-foreground rounded-full"></div>
+                        <div class="flex-1">
+                            <p class="font-medium">Old Goa Churches</p>
+                            <p class="text-sm text-muted-foreground">Tomorrow, 10:00 AM - 4:00 PM</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+                        <div class="w-2 h-2 bg-muted-foreground rounded-full"></div>
+                        <div class="flex-1">
+                            <p class="font-medium">Spice Plantation Tour</p>
+                            <p class="text-sm text-muted-foreground">Dec 28, 8:00 AM - 6:00 PM</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Emergency Contacts -->
+            <div class="bg-card rounded-lg border p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold">Emergency Contacts</h3>
+                    <button class="text-primary hover:text-blue-600">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-medium" data-bind="user.emergencyContact1.name">Rahul Sharma</p>
+                            <p class="text-sm text-muted-foreground">Brother</p>
+                        </div>
+                        <a href="tel:+919876543210" class="text-primary font-medium">+91 98765-43210</a>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-medium" data-bind="user.emergencyContact2.name">Maya Sharma</p>
+                            <p class="text-sm text-muted-foreground">Mother</p>
+                        </div>
+                        <a href="tel:+919876543211" class="text-primary font-medium">+91 98765-43211</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="bg-card rounded-lg border p-4">
+                <h3 class="font-semibold mb-4">Settings</h3>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span>Location Sharing</span>
+                        <button class="relative inline-block w-10 h-6 bg-success rounded-full">
+                            <span class="absolute left-4 top-1 w-4 h-4 bg-white rounded-full"></span>
+                        </button>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span>Push Notifications</span>
+                        <button class="relative inline-block w-10 h-6 bg-success rounded-full">
+                            <span class="absolute left-4 top-1 w-4 h-4 bg-white rounded-full"></span>
+                        </button>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span>Emergency Auto-Share</span>
+                        <button class="relative inline-block w-10 h-6 bg-success rounded-full">
+                            <span class="absolute left-4 top-1 w-4 h-4 bg-white rounded-full"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: TouristInterface -->
+
+    <!-- @COMPONENT: PoliceInterface -->
+    <div id="policeInterface" class="hide">
+        <!-- Police Dashboard Header -->
+        <header class="bg-card border-b shadow-sm">
+            <div class="flex items-center justify-between p-4">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-shield-alt text-primary text-2xl"></i>
+                        <div>
+                            <h1 class="text-xl font-bold">SafeTourism Police Dashboard</h1>
+                            <p class="text-sm text-muted-foreground">Goa Tourism Police - North District</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-success rounded-full"></div>
+                        <span class="text-sm">System Online</span>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-medium" data-bind="officer.name">Officer Raj Desai</p>
+                        <p class="text-sm text-muted-foreground" data-bind="officer.badge">Badge: GP-1234</p>
+                    </div>
+                    <button onclick="showLoginScreen()" class="p-2 hover:bg-muted rounded">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex h-screen">
+            <!-- Sidebar -->
+            <aside class="w-64 bg-card border-r overflow-y-auto">
+                <nav class="p-4 space-y-2">
+                    <button onclick="showPoliceTab('overview')" id="overviewTabBtn" class="w-full text-left px-3 py-2 bg-primary text-primary-foreground rounded-md">
+                        <i class="fas fa-tachometer-alt mr-2"></i>Overview
+                    </button>
+                    <button onclick="showPoliceTab('tourists')" id="touristsTabBtn" class="w-full text-left px-3 py-2 text-muted-foreground hover:bg-muted rounded-md">
+                        <i class="fas fa-users mr-2"></i>Active Tourists
+                    </button>
+                    <button onclick="showPoliceTab('alerts')" id="alertsTabBtn" class="w-full text-left px-3 py-2 text-muted-foreground hover:bg-muted rounded-md">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>Alerts & Incidents
+                    </button>
+                    <button onclick="showPoliceTab('map')" id="mapTabBtn" class="w-full text-left px-3 py-2 text-muted-foreground hover:bg-muted rounded-md">
+                        <i class="fas fa-map mr-2"></i>Live Map
+                    </button>
+                    <button onclick="showPoliceTab('reports')" id="reportsTabBtn" class="w-full text-left px-3 py-2 text-muted-foreground hover:bg-muted rounded-md">
+                        <i class="fas fa-chart-bar mr-2"></i>Reports
+                    </button>
+                </nav>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 overflow-y-auto">
+                <!-- Overview Tab -->
+                <div id="policeOverview" class="p-6 space-y-6">
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div class="bg-card border rounded-lg p-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-users text-primary text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold" data-bind="stats.activeTourists">1,247</p>
+                                    <p class="text-sm text-muted-foreground">Active Tourists</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-card border rounded-lg p-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-12 h-12 bg-warning/10 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-exclamation-triangle text-warning text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold" data-bind="stats.activeAlerts">7</p>
+                                    <p class="text-sm text-muted-foreground">Active Alerts</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-card border rounded-lg p-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-12 h-12 bg-destructive/10 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-map-marker-alt text-destructive text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold" data-bind="stats.highRiskZones">3</p>
+                                    <p class="text-sm text-muted-foreground">High Risk Zones</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-card border rounded-lg p-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-12 h-12 bg-success/10 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-shield-alt text-success text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold" data-bind="stats.averageSafetyScore">84.2</p>
+                                    <p class="text-sm text-muted-foreground">Avg Safety Score</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-card border rounded-lg p-4">
+                            <h3 class="font-semibold mb-4">Recent Incidents</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-start space-x-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                                    <i class="fas fa-exclamation-circle text-destructive mt-1"></i>
+                                    <div class="flex-1">
+                                        <p class="font-medium">Panic Alert Triggered</p>
+                                        <p class="text-sm text-muted-foreground">Tourist ID: TID-2024-001523 at Baga Beach</p>
+                                        <p class="text-xs text-muted-foreground">5 minutes ago</p>
+                                    </div>
+                                    <button class="text-primary hover:text-blue-600 text-sm">View</button>
+                                </div>
+                                <div class="flex items-start space-x-3 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                                    <i class="fas fa-map-marker-alt text-warning mt-1"></i>
+                                    <div class="flex-1">
+                                        <p class="font-medium">Geo-fence Violation</p>
+                                        <p class="text-sm text-muted-foreground">Tourist entered restricted area near Fort Aguada</p>
+                                        <p class="text-xs text-muted-foreground">15 minutes ago</p>
+                                    </div>
+                                    <button class="text-primary hover:text-blue-600 text-sm">View</button>
+                                </div>
+                                <div class="flex items-start space-x-3 p-3 bg-muted rounded-lg">
+                                    <i class="fas fa-info-circle text-primary mt-1"></i>
+                                    <div class="flex-1">
+                                        <p class="font-medium">Tourist Check-in</p>
+                                        <p class="text-sm text-muted-foreground">Safe arrival at Panaji accommodation</p>
+                                        <p class="text-xs text-muted-foreground">1 hour ago</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-card border rounded-lg p-4">
+                            <h3 class="font-semibold mb-4">System Status</h3>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span>GPS Tracking System</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-2 h-2 bg-success rounded-full"></div>
+                                        <span class="text-sm text-success">Online</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>Alert Notification System</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-2 h-2 bg-success rounded-full"></div>
+                                        <span class="text-sm text-success">Online</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>Blockchain Network</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-2 h-2 bg-success rounded-full"></div>
+                                        <span class="text-sm text-success">Synced</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>AI/ML Safety Engine</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-2 h-2 bg-warning rounded-full"></div>
+                                        <span class="text-sm text-warning">Processing</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tourists Tab -->
+                <div id="policeTourists" class="hide p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">Active Tourists</h2>
+                        <div class="flex space-x-2">
+                            <button class="px-4 py-2 bg-primary text-primary-foreground rounded-md">
+                                <i class="fas fa-download mr-2"></i>Export
+                            </button>
+                            <button class="px-4 py-2 border border-border rounded-md">
+                                <i class="fas fa-filter mr-2"></i>Filter
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-card border rounded-lg overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-muted">
+                                    <tr>
+                                        <th class="text-left p-4 font-medium">Tourist ID</th>
+                                        <th class="text-left p-4 font-medium">Name</th>
+                                        <th class="text-left p-4 font-medium">Current Location</th>
+                                        <th class="text-left p-4 font-medium">Safety Score</th>
+                                        <th class="text-left p-4 font-medium">Status</th>
+                                        <th class="text-left p-4 font-medium">Last Updated</th>
+                                        <th class="text-left p-4 font-medium">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-border">
+                                    <!-- @MAP: tourists.map(tourist => ( -->
+                                    <tr class="hover:bg-muted/50">
+                                        <td class="p-4 font-mono text-sm" data-bind="tourist.id">TID-2024-001523</td>
+                                        <td class="p-4" data-bind="tourist.name">Priya Sharma</td>
+                                        <td class="p-4" data-bind="tourist.location">Calangute Beach</td>
+                                        <td class="p-4">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-success/10 text-success">
+                                                87
+                                            </span>
+                                        </td>
+                                        <td class="p-4">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-success/10 text-success">
+                                                Safe
+                                            </span>
+                                        </td>
+                                        <td class="p-4 text-sm text-muted-foreground" data-bind="tourist.lastUpdate">2 min ago</td>
+                                        <td class="p-4">
+                                            <button class="text-primary hover:text-blue-600 mr-2">View</button>
+                                            <button class="text-secondary hover:text-orange-600">Contact</button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-muted/50">
+                                        <td class="p-4 font-mono text-sm">TID-2024-001524</td>
+                                        <td class="p-4">John Smith</td>
+                                        <td class="p-4">Anjuna Beach</td>
+                                        <td class="p-4">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-warning/10 text-warning">
+                                                73
+                                            </span>
+                                        </td>
+                                        <td class="p-4">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-warning/10 text-warning">
+                                                Caution
+                                            </span>
+                                        </td>
+                                        <td class="p-4 text-sm text-muted-foreground">5 min ago</td>
+                                        <td class="p-4">
+                                            <button class="text-primary hover:text-blue-600 mr-2">View</button>
+                                            <button class="text-secondary hover:text-orange-600">Contact</button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-muted/50">
+                                        <td class="p-4 font-mono text-sm">TID-2024-001525</td>
+                                        <td class="p-4">Maria Garcia</td>
+                                        <td class="p-4">Old Goa</td>
+                                        <td class="p-4">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-success/10 text-success">
+                                                91
+                                            </span>
+                                        </td>
+                                        <td class="p-4">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-success/10 text-success">
+                                                Safe
+                                            </span>
+                                        </td>
+                                        <td class="p-4 text-sm text-muted-foreground">1 min ago</td>
+                                        <td class="p-4">
+                                            <button class="text-primary hover:text-blue-600 mr-2">View</button>
+                                            <button class="text-secondary hover:text-orange-600">Contact</button>
+                                        </td>
+                                    </tr>
+                                    <!-- @END_MAP )) -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerts Tab -->
+                <div id="policeAlerts" class="hide p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">Alerts & Incidents</h2>
+                        <div class="flex space-x-2">
+                            <button class="px-4 py-2 bg-destructive text-destructive-foreground rounded-md">
+                                <i class="fas fa-bell mr-2"></i>Create Alert
+                            </button>
+                            <select class="px-4 py-2 border border-border rounded-md">
+                                <option>All Alerts</option>
+                                <option>Active Only</option>
+                                <option>Resolved</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <!-- Active Alerts -->
+                        <div class="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-start space-x-3">
+                                    <i class="fas fa-exclamation-triangle text-destructive text-xl mt-1"></i>
+                                    <div>
+                                        <h3 class="font-semibold text-destructive">PANIC ALERT - HIGH PRIORITY</h3>
+                                        <p class="text-sm">Tourist ID: TID-2024-001523 (Priya Sharma)</p>
+                                        <p class="text-sm text-muted-foreground">Location: Baga Beach, Near Tito's Club</p>
+                                        <p class="text-sm text-muted-foreground">Triggered: 5 minutes ago</p>
+                                        <div class="flex space-x-2 mt-2">
+                                            <span class="px-2 py-1 bg-destructive text-destructive-foreground text-xs rounded">ACTIVE</span>
+                                            <span class="px-2 py-1 bg-warning text-warning-foreground text-xs rounded">DISPATCHED</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="px-3 py-1 bg-primary text-primary-foreground text-sm rounded">View Map</button>
+                                    <button class="px-3 py-1 bg-success text-success-foreground text-sm rounded">Resolve</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Geo-fence Alerts -->
+                        <div class="bg-warning/10 border border-warning/20 rounded-lg p-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-start space-x-3">
+                                    <i class="fas fa-map-marker-alt text-warning text-xl mt-1"></i>
+                                    <div>
+                                        <h3 class="font-semibold text-warning">Geo-fence Violation</h3>
+                                        <p class="text-sm">Tourist ID: TID-2024-001524 (John Smith)</p>
+                                        <p class="text-sm text-muted-foreground">Entered restricted area: Fort Aguada Restricted Zone</p>
+                                        <p class="text-sm text-muted-foreground">Triggered: 15 minutes ago</p>
+                                        <div class="flex space-x-2 mt-2">
+                                            <span class="px-2 py-1 bg-warning text-warning-foreground text-xs rounded">MONITORING</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="px-3 py-1 bg-primary text-primary-foreground text-sm rounded">View Map</button>
+                                    <button class="px-3 py-1 bg-secondary text-secondary-foreground text-sm rounded">Contact</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Resolved Alerts -->
+                        <div class="bg-muted rounded-lg p-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-start space-x-3">
+                                    <i class="fas fa-check-circle text-success text-xl mt-1"></i>
+                                    <div>
+                                        <h3 class="font-semibold">Medical Emergency - Resolved</h3>
+                                        <p class="text-sm">Tourist ID: TID-2024-001521 (David Johnson)</p>
+                                        <p class="text-sm text-muted-foreground">Minor injury at Arambol Beach - Medical assistance provided</p>
+                                        <p class="text-sm text-muted-foreground">Resolved: 2 hours ago</p>
+                                        <div class="flex space-x-2 mt-2">
+                                            <span class="px-2 py-1 bg-success text-success-foreground text-xs rounded">RESOLVED</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="px-3 py-1 border border-border text-sm rounded">View Report</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map Tab -->
+                <div id="policeMap" class="hide p-6">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-2xl font-bold">Live Map View</h2>
+                            <div class="flex space-x-2">
+                                <button class="px-4 py-2 bg-primary text-primary-foreground rounded-md">
+                                    <i class="fas fa-sync mr-2"></i>Refresh
+                                </button>
+                                <select class="px-4 py-2 border border-border rounded-md">
+                                    <option>All Tourists</option>
+                                    <option>High Risk Only</option>
+                                    <option>Active Alerts</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-card border rounded-lg p-4">
+                            <div id="policeMapContainer" class="map-container" style="height: 500px;"></div>
+                        </div>
+
+                        <!-- Map Controls -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-card border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Map Legend</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-3 h-3 bg-primary rounded-full"></div>
+                                        <span>Tourist - Safe</span>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-3 h-3 bg-warning rounded-full"></div>
+                                        <span>Tourist - Caution</span>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-3 h-3 bg-destructive rounded-full"></div>
+                                        <span>Tourist - Alert</span>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-3 h-3 bg-muted-foreground rounded-full"></div>
+                                        <span>Police Station</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-card border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Zone Statistics</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span>Safe Zones</span>
+                                        <span class="font-medium">892 tourists</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Caution Zones</span>
+                                        <span class="font-medium">247 tourists</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>High Risk Zones</span>
+                                        <span class="font-medium text-destructive">3 tourists</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-card border rounded-lg p-4">
+                                <h4 class="font-semibold mb-3">Quick Actions</h4>
+                                <div class="space-y-2">
+                                    <button class="w-full px-3 py-2 bg-destructive text-destructive-foreground text-sm rounded">
+                                        <i class="fas fa-exclamation-triangle mr-2"></i>Broadcast Alert
+                                    </button>
+                                    <button class="w-full px-3 py-2 bg-warning text-warning-foreground text-sm rounded">
+                                        <i class="fas fa-map-marked-alt mr-2"></i>Create Geo-fence
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports Tab -->
+                <div id="policeReports" class="hide p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">Reports & Analytics</h2>
+                        <div class="flex space-x-2">
+                            <select class="px-4 py-2 border border-border rounded-md">
+                                <option>Last 7 Days</option>
+                                <option>Last 30 Days</option>
+                                <option>Last 3 Months</option>
+                            </select>
+                            <button class="px-4 py-2 bg-primary text-primary-foreground rounded-md">
+                                <i class="fas fa-download mr-2"></i>Export PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Safety Score Trends -->
+                        <div class="bg-card border rounded-lg p-4">
+                            <h3 class="font-semibold mb-4">Safety Score Trends</h3>
+                            <div class="h-64 bg-muted rounded flex items-center justify-center">
+                                <!-- Chart placeholder -->
+                                <div class="text-center text-muted-foreground">
+                                    <i class="fas fa-chart-line text-4xl mb-2"></i>
+                                    <p>Safety Score Chart</p>
+                                    <p class="text-sm">Average score trending upward (+2.3%)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Incident Categories -->
+                        <div class="bg-card border rounded-lg p-4">
+                            <h3 class="font-semibold mb-4">Incident Categories</h3>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span>Geo-fence Violations</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-20 h-2 bg-muted rounded">
+                                            <div class="w-3/5 h-full bg-warning rounded"></div>
+                                        </div>
+                                        <span class="text-sm font-medium">23</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>Panic Alerts</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-20 h-2 bg-muted rounded">
+                                            <div class="w-1/5 h-full bg-destructive rounded"></div>
+                                        </div>
+                                        <span class="text-sm font-medium">5</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>Medical Emergencies</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-20 h-2 bg-muted rounded">
+                                            <div class="w-2/5 h-full bg-secondary rounded"></div>
+                                        </div>
+                                        <span class="text-sm font-medium">12</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>Lost Tourist Reports</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-20 h-2 bg-muted rounded">
+                                            <div class="w-1/4 h-full bg-primary rounded"></div>
+                                        </div>
+                                        <span class="text-sm font-medium">8</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Response Time Analytics -->
+                        <div class="bg-card border rounded-lg p-4">
+                            <h3 class="font-semibold mb-4">Response Time Analytics</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold text-success">3.2</p>
+                                    <p class="text-sm text-muted-foreground">Avg Response (min)</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold text-primary">98.5%</p>
+                                    <p class="text-sm text-muted-foreground">SLA Compliance</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tourist Demographics -->
+                        <div class="bg-card border rounded-lg p-4">
+                            <h3 class="font-semibold mb-4">Tourist Demographics</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Domestic</span>
+                                        <span>68%</span>
+                                    </div>
+                                    <div class="w-full h-2 bg-muted rounded">
+                                        <div class="w-2/3 h-full bg-primary rounded"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>International</span>
+                                        <span>32%</span>
+                                    </div>
+                                    <div class="w-full h-2 bg-muted rounded">
+                                        <div class="w-1/3 h-full bg-secondary rounded"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: PoliceInterface -->
+
+    <!-- Alert Modal -->
+    <div id="alertModal" class="hide fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-card rounded-lg p-6 max-w-md w-full">
+            <div class="text-center">
+                <i class="fas fa-exclamation-triangle text-4xl text-destructive mb-4"></i>
+                <h3 class="text-lg font-semibold mb-2">Emergency Alert Sent</h3>
+                <p class="text-muted-foreground mb-4">Your location and emergency signal have been sent to local authorities and your emergency contacts.</p>
+                <button onclick="hideAlertModal()" class="bg-primary text-primary-foreground px-6 py-2 rounded-md">OK</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+<!-- @END_COMPONENT: AppContainer -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function() {
+    // Application state
+    let currentInterface = 'login';
+    let currentTouristTab = 'dashboard';
+    let currentPoliceTab = 'overview';
+    let locationSharing = true;
+    
+    // Mock data
+    const mockTourists = [
+        { id: 'TID-2024-001523', name: 'Priya Sharma', lat: 15.5527, lng: 73.7547, safetyScore: 87, status: 'safe' },
+        { id: 'TID-2024-001524', name: 'John Smith', lat: 15.5937, lng: 73.7370, safetyScore: 73, status: 'caution' },
+        { id: 'TID-2024-001525', name: 'Maria Garcia', lat: 15.5007, lng: 73.9119, safetyScore: 91, status: 'safe' },
+        { id: 'TID-2024-001526', name: 'Ahmed Hassan', lat: 15.4909, lng: 73.8278, safetyScore: 45, status: 'alert' },
+    ];
+
+    // High-risk zones (mock data)
+    const highRiskZones = [
+        { name: 'Restricted Military Area', coords: [[15.4800, 73.8200], [15.4850, 73.8200], [15.4850, 73.8300], [15.4800, 73.8300]] },
+        { name: 'Unsafe Beach Area', coords: [[15.5600, 73.7400], [15.5650, 73.7400], [15.5650, 73.7500], [15.5600, 73.7500]] },
+    ];
+
+    // Global functions for interface switching
+    window.showUserInterface = function(type) {
+        hideAll();
+        currentInterface = type;
+        if (type === 'tourist') {
+            document.getElementById('touristInterface').classList.remove('hide');
+            setTimeout(initTouristMap, 100);
+        } else if (type === 'police') {
+            document.getElementById('policeInterface').classList.remove('hide');
+            setTimeout(initPoliceMap, 100);
+        }
+    };
+
+    window.showLoginScreen = function() {
+        hideAll();
+        currentInterface = 'login';
+        document.getElementById('loginScreen').classList.remove('hide');
+    };
+
+    window.showTouristTab = function(tab) {
+        // Hide all tourist tabs
+        document.getElementById('touristDashboard').classList.add('hide');
+        document.getElementById('touristMap').classList.add('hide');
+        document.getElementById('touristProfile').classList.add('hide');
+        
+        // Remove active state from all tab buttons
+        document.getElementById('dashboardTab').classList.remove('border-primary', 'text-primary');
+        document.getElementById('dashboardTab').classList.add('border-transparent', 'text-muted-foreground');
+        document.getElementById('mapTab').classList.remove('border-primary', 'text-primary');
+        document.getElementById('mapTab').classList.add('border-transparent', 'text-muted-foreground');
+        document.getElementById('profileTab').classList.remove('border-primary', 'text-primary');
+        document.getElementById('profileTab').classList.add('border-transparent', 'text-muted-foreground');
+        
+        // Show selected tab
+        document.getElementById('tourist' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('hide');
+        
+        // Update tab button state
+        const tabButton = document.getElementById(tab + 'Tab');
+        tabButton.classList.remove('border-transparent', 'text-muted-foreground');
+        tabButton.classList.add('border-primary', 'text-primary');
+        
+        currentTouristTab = tab;
+        
+        // Initialize map if map tab is selected
+        if (tab === 'map') {
+            setTimeout(initTouristMap, 100);
+        }
+    };
+
+    window.showPoliceTab = function(tab) {
+        // Hide all police tabs
+        document.getElementById('policeOverview').classList.add('hide');
+        document.getElementById('policeTourists').classList.add('hide');
+        document.getElementById('policeAlerts').classList.add('hide');
+        document.getElementById('policeMap').classList.add('hide');
+        document.getElementById('policeReports').classList.add('hide');
+        
+        // Remove active state from all tab buttons
+        ['overview', 'tourists', 'alerts', 'map', 'reports'].forEach(t => {
+            const btn = document.getElementById(t + 'TabBtn');
+            btn.classList.remove('bg-primary', 'text-primary-foreground');
+            btn.classList.add('text-muted-foreground', 'hover:bg-muted');
+        });
+        
+        // Show selected tab
+        document.getElementById('police' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('hide');
+        
+        // Update tab button state
+        const tabButton = document.getElementById(tab + 'TabBtn');
+        tabButton.classList.remove('text-muted-foreground', 'hover:bg-muted');
+        tabButton.classList.add('bg-primary', 'text-primary-foreground');
+        
+        currentPoliceTab = tab;
+        
+        // Initialize map if map tab is selected
+        if (tab === 'map') {
+            setTimeout(initPoliceMap, 100);
+        }
+    };
+
+    window.triggerPanicAlert = function() {
+        // TODO: Implement actual panic alert logic
+        console.log('Panic alert triggered - sending to backend and emergency contacts');
+        showAlertModal();
+    };
+
+    window.toggleLocationSharing = function() {
+        locationSharing = !locationSharing;
+        const toggle = document.getElementById('locationToggle');
+        const knob = toggle.querySelector('span');
+        
+        if (locationSharing) {
+            toggle.classList.remove('bg-muted');
+            toggle.classList.add('bg-success');
+            knob.classList.remove('left-1');
+            knob.classList.add('left-4');
+        } else {
+            toggle.classList.remove('bg-success');
+            toggle.classList.add('bg-muted');
+            knob.classList.remove('left-4');
+            knob.classList.add('left-1');
+        }
+    };
+
+    window.showAlertModal = function() {
+        document.getElementById('alertModal').classList.remove('hide');
+    };
+
+    window.hideAlertModal = function() {
+        document.getElementById('alertModal').classList.add('hide');
+    };
+
+    function hideAll() {
+        document.getElementById('loginScreen').classList.add('hide');
+        document.getElementById('touristInterface').classList.add('hide');
+        document.getElementById('policeInterface').classList.add('hide');
+    }
+
+    function initTouristMap() {
+        const mapContainer = document.getElementById('touristMapContainer');
+        if (!mapContainer || mapContainer.innerHTML !== '') return;
+
+        // Initialize Leaflet map centered on Goa
+        const map = L.map('touristMapContainer').setView([15.5527, 73.7547], 12);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add user location marker
+        const userIcon = L.divIcon({
+            html: '<i class="fas fa-user-circle text-primary text-2xl"></i>',
+            iconSize: [24, 24],
+            className: 'custom-div-icon'
+        });
+        
+        L.marker([15.5527, 73.7547], { icon: userIcon })
+            .addTo(map)
+            .bindPopup('<b>Your Location</b><br>Calangute Beach, Goa');
+
+        // Add high-risk zones
+        highRiskZones.forEach(zone => {
+            L.polygon(zone.coords, {
+                color: 'hsl(0 72% 51%)',
+                fillColor: 'hsl(0 72% 51%)',
+                fillOpacity: 0.2
+            }).addTo(map).bindPopup(`<b>High Risk Zone</b><br>${zone.name}`);
+        });
+
+        // Add some safe zones
+        L.circle([15.5007, 73.9119], {
+            color: 'hsl(122 39% 49%)',
+            fillColor: 'hsl(122 39% 49%)',
+            fillOpacity: 0.2,
+            radius: 500
+        }).addTo(map).bindPopup('<b>Safe Zone</b><br>Old Goa Heritage Area');
+    }
+
+    function initPoliceMap() {
+        const mapContainer = document.getElementById('policeMapContainer');
+        if (!mapContainer || mapContainer.innerHTML !== '') return;
+
+        // Initialize Leaflet map centered on Goa
+        const map = L.map('policeMapContainer').setView([15.5527, 73.7547], 11);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add tourist markers
+        mockTourists.forEach(tourist => {
+            let iconColor = 'hsl(211 100% 43%)'; // primary blue for safe
+            if (tourist.status === 'caution') iconColor = 'hsl(36 100% 50%)'; // warning orange
+            if (tourist.status === 'alert') iconColor = 'hsl(0 72% 51%)'; // destructive red
+
+            const touristIcon = L.divIcon({
+                html: `<div style="background-color: ${iconColor}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                iconSize: [16, 16],
+                className: 'custom-div-icon'
+            });
+            
+            L.marker([tourist.lat, tourist.lng], { icon: touristIcon })
+                .addTo(map)
+                .bindPopup(`<b>${tourist.name}</b><br>ID: ${tourist.id}<br>Safety Score: ${tourist.safetyScore}<br>Status: ${tourist.status}`);
+        });
+
+        // Add high-risk zones
+        highRiskZones.forEach(zone => {
+            L.polygon(zone.coords, {
+                color: 'hsl(0 72% 51%)',
+                fillColor: 'hsl(0 72% 51%)',
+                fillOpacity: 0.3
+            }).addTo(map).bindPopup(`<b>High Risk Zone</b><br>${zone.name}`);
+        });
+
+        // Add police stations
+        const policeStations = [
+            { name: 'Calangute Police Station', lat: 15.5427, lng: 73.7647 },
+            { name: 'Panaji Police Station', lat: 15.4909, lng: 73.8278 },
+            { name: 'Margao Police Station', lat: 15.2993, lng: 74.1240 }
+        ];
+
+        policeStations.forEach(station => {
+            const stationIcon = L.divIcon({
+                html: '<i class="fas fa-shield-alt" style="color: hsl(215 16% 47%); font-size: 16px;"></i>',
+                iconSize: [20, 20],
+                className: 'custom-div-icon'
+            });
+            
+            L.marker([station.lat, station.lng], { icon: stationIcon })
+                .addTo(map)
+                .bindPopup(`<b>${station.name}</b><br>Emergency Response Unit`);
+        });
+    }
+
+    // Initialize the application
+    document.addEventListener('DOMContentLoaded', function() {
+        // Show login screen by default
+        showLoginScreen();
+    });
+})();
+</script>
+
+</body>
+</html>
