@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Home, Map, User, LogOut, MapPin, Phone, AlertTriangle, Info, ExternalLink } from "lucide-react";
+import { Shield, Home, Map, User, LogOut, MapPin, Phone, AlertTriangle, Info, ExternalLink, History } from "lucide-react";
 import TouristMap from "@/components/tourist-map";
 import PanicButton from "@/components/panic-button";
 import type { Tourist, User as UserType, Alert } from "@shared/schema";
@@ -128,6 +128,7 @@ export default function TouristDashboard() {
           {[
             { id: "dashboard", icon: Home, label: "Dashboard" },
             { id: "map", icon: Map, label: "Map" },
+            { id: "alerts", icon: History, label: "Alerts" },
             { id: "profile", icon: User, label: "Profile" },
           ].map((tab) => (
             <Button
@@ -290,6 +291,93 @@ export default function TouristDashboard() {
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-destructive rounded-full"></div>
                   <span>High Risk Zone</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Alerts History Tab */}
+      {activeTab === "alerts" && (
+        <div className="p-4 space-y-6" data-testid="content-alerts">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Alert History</h3>
+                <Badge variant="outline">{alerts?.length || 0} total</Badge>
+              </div>
+              
+              <div className="space-y-3">
+                {alerts?.length ? (
+                  alerts.map((alert: Alert) => (
+                    <div
+                      key={alert.id}
+                      className={`flex items-start space-x-3 p-4 rounded-lg border ${
+                        alert.severity === 'critical' 
+                          ? 'bg-destructive/5 border-destructive/20' 
+                          : 'bg-muted/50 border-muted'
+                      }`}
+                      data-testid={`alert-history-${alert.id}`}
+                    >
+                      <AlertTriangle className={`h-5 w-5 mt-1 ${
+                        alert.severity === 'critical' ? 'text-destructive' : 'text-warning'
+                      }`} />
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">
+                              {alert.type.charAt(0).toUpperCase() + alert.type.slice(1)} Alert
+                            </p>
+                            <p className="text-sm text-muted-foreground">{alert.description}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Location: {alert.location || "Unknown"}
+                            </p>
+                          </div>
+                          <Badge 
+                            className={alert.status === 'resolved' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}
+                          >
+                            {alert.status || 'active'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center mt-3 pt-3 border-t">
+                          <p className="text-xs text-muted-foreground">
+                            {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : "Unknown"}
+                          </p>
+                          <p className="text-xs font-medium text-primary">
+                            Priority: {alert.severity}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No alerts in history</p>
+                    <p className="text-sm">You haven't triggered any emergency alerts</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Alert Statistics */}
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="font-semibold mb-4">Alert Statistics</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">
+                    {alerts?.filter(a => a.status === 'resolved').length || 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Resolved</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-warning">
+                    {alerts?.filter(a => a.status === 'active').length || 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Active</p>
                 </div>
               </div>
             </CardContent>
