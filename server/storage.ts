@@ -224,8 +224,8 @@ export class MemStorage implements IStorage {
       locationSharing: insertTourist.locationSharing ?? true,
       status: insertTourist.status || "safe",
       validUntil: insertTourist.validUntil || null,
-      emergencyContacts: insertTourist.emergencyContacts || null,
-      itinerary: insertTourist.itinerary || null,
+      emergencyContacts: insertTourist.emergencyContacts || [],
+      itinerary: insertTourist.itinerary || [],
       lastUpdate: new Date(),
     };
     this.tourists.set(id, tourist);
@@ -260,7 +260,7 @@ export class MemStorage implements IStorage {
       id,
       description: insertZone.description || null,
       createdAt: new Date(),
-    };
+    } as GeoZone;
     this.geoZones.set(id, zone);
     return zone;
   }
