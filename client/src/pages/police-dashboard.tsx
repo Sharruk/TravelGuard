@@ -361,8 +361,8 @@ export default function PoliceDashboard() {
                               </Badge>
                             </td>
                             <td className="p-4">
-                              <Badge className={getStatusColor(tourist.status)} data-testid={`tourist-status-${tourist.id}`}>
-                                {tourist.status?.charAt(0).toUpperCase() + tourist.status?.slice(1)}
+                              <Badge className={getStatusColor(tourist.status || "safe")} data-testid={`tourist-status-${tourist.id}`}>
+                                {tourist.status ? tourist.status.charAt(0).toUpperCase() + tourist.status.slice(1) : "Safe"}
                               </Badge>
                             </td>
                             <td className="p-4 text-sm text-muted-foreground">
