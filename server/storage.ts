@@ -192,6 +192,8 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...insertUser, 
       id,
+      nationality: insertUser.nationality || null,
+      badge: insertUser.badge || null,
       createdAt: new Date(),
     };
     this.users.set(id, user);
@@ -215,6 +217,15 @@ export class MemStorage implements IStorage {
     const tourist: Tourist = { 
       ...insertTourist, 
       id,
+      safetyScore: insertTourist.safetyScore || "85.00",
+      currentLocation: insertTourist.currentLocation || null,
+      lastKnownLat: insertTourist.lastKnownLat || null,
+      lastKnownLng: insertTourist.lastKnownLng || null,
+      locationSharing: insertTourist.locationSharing ?? true,
+      status: insertTourist.status || "safe",
+      validUntil: insertTourist.validUntil || null,
+      emergencyContacts: insertTourist.emergencyContacts || null,
+      itinerary: insertTourist.itinerary || null,
       lastUpdate: new Date(),
     };
     this.tourists.set(id, tourist);
@@ -247,6 +258,7 @@ export class MemStorage implements IStorage {
     const zone: GeoZone = { 
       ...insertZone, 
       id,
+      description: insertZone.description || null,
       createdAt: new Date(),
     };
     this.geoZones.set(id, zone);
@@ -262,6 +274,12 @@ export class MemStorage implements IStorage {
     const alert: Alert = { 
       ...insertAlert, 
       id,
+      location: insertAlert.location || null,
+      lat: insertAlert.lat || null,
+      lng: insertAlert.lng || null,
+      description: insertAlert.description || null,
+      status: insertAlert.status || "active",
+      respondedBy: insertAlert.respondedBy || null,
       createdAt: new Date(),
       resolvedAt: null,
     };
