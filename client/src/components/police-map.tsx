@@ -12,9 +12,11 @@ declare global {
 interface PoliceMapProps {
   tourists: Tourist[];
   alerts: Alert[];
+  centerOn?: { lat: number; lng: number };
+  zoom?: number;
 }
 
-export default function PoliceMap({ tourists, alerts }: PoliceMapProps) {
+export default function PoliceMap({ tourists, alerts, centerOn, zoom }: PoliceMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
@@ -45,8 +47,11 @@ export default function PoliceMap({ tourists, alerts }: PoliceMapProps) {
         mapInstanceRef.current.remove();
       }
 
-      // Initialize map centered on Goa
-      const map = window.L.map(mapRef.current).setView([15.5527, 73.7547], 11);
+      // Initialize map with provided center or default to Goa
+      const lat = centerOn?.lat || 15.5527;
+      const lng = centerOn?.lng || 73.7547;
+      const mapZoom = zoom || 11;
+      const map = window.L.map(mapRef.current).setView([lat, lng], mapZoom);
       mapInstanceRef.current = map;
 
       // Add tile layer
