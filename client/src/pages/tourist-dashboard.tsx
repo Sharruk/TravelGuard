@@ -1,0 +1,431 @@
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Shield, Home, Map, User, LogOut, MapPin, Phone, AlertTriangle, Info, ExternalLink } from "lucide-react";
+import TouristMap from "@/components/tourist-map";
+import PanicButton from "@/components/panic-button";
+import type { Tourist, User as UserType, Alert } from "@shared/schema";
+
+export default function TouristDashboard() {
+  const [, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [locationSharing, setLocationSharing] = useState(true);
+  const { toast } = useToast();
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}") as UserType;
+  const storedTourist = JSON.parse(localStorage.getItem("tourist") || "{}") as Tourist;
+
+  useEffect(() => {
+    if (!user.id) {
+      setLocation("/");
+    }
+  }, [user.id, setLocation]);
+
+  const { data: tourist } = useQuery({
+    queryKey: ["/api/tourist/profile", user.id],
+    enabled: !!user.id,
+  });
+
+  const { data: alerts } = useQuery({
+    queryKey: ["/api/tourist/alerts", storedTourist.touristId],
+    enabled: !!storedTourist.touristId,
+  });
+
+  const currentTourist = tourist || storedTourist;
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("tourist");
+    setLocation("/");
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "safe":
+        return "bg-success/10 text-success";
+      case "caution":
+        return "bg-warning/10 text-warning";
+      case "alert":
+        return "bg-destructive/10 text-destructive";
+      default:
+        return "bg-muted/10 text-muted-foreground";
+    }
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case "critical":
+        return "bg-destructive/10 border-destructive/20 text-destructive";
+      case "high":
+        return "bg-warning/10 border-warning/20 text-warning";
+      default:
+        return "bg-muted border-muted/20";
+    }
+  };
+
+  if (!user.id) return null;
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Mobile Navigation Header */}
+      <header className="bg-primary text-primary-foreground p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Shield className="h-6 w-6" />
+            <div>
+              <h1 className="font-bold">SafeTourism</h1>
+              <p className="text-xs opacity-90" data-testid="text-location">
+                {currentTourist?.currentLocation || "Goa, India"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="text-right">
+              <p className="text-xs opacity-90">Safety Score</p>
+              <p className="font-bold text-lg" data-testid="text-safety-score">
+                {currentTourist?.safetyScore || "87"}
+              </p>
+            </div>
+            <Button 
+              onClick={handleLogout} 
+              variant="ghost" 
+              size="sm"
+              className="p-2 hover:bg-blue-600"
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Quick Actions Bar */}
+      <div className="bg-card border-b p-4">
+        <div className="flex justify-between items-center gap-4">
+          {/* Emergency Panic Button */}
+          <PanicButton touristId={currentTourist?.touristId} />
+          
+          {/* Location Sharing Toggle */}
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium">Location Sharing</label>
+            <Switch
+              checked={locationSharing}
+              onCheckedChange={setLocationSharing}
+              data-testid="switch-location-sharing"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <nav className="bg-card border-b">
+        <div className="flex">
+          {[
+            { id: "dashboard", icon: Home, label: "Dashboard" },
+            { id: "map", icon: Map, label: "Map" },
+            { id: "profile", icon: User, label: "Profile" },
+          ].map((tab) => (
+            <Button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              variant="ghost"
+              className={`flex-1 py-3 px-4 border-b-2 ${
+                activeTab === tab.id
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground"
+              }`}
+              data-testid={`tab-${tab.id}`}
+            >
+              <tab.icon className="h-4 w-4 mr-1" />
+              {tab.label}
+            </Button>
+          ))}
+        </div>
+      </nav>
+
+      {/* Dashboard Tab */}
+      {activeTab === "dashboard" && (
+        <div className="p-4 space-y-6" data-testid="content-dashboard">
+          {/* Safety Status Card */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Safety Status</h2>
+                <div className="w-3 h-3 bg-success rounded-full"></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-success" data-testid="text-safety-score-card">
+                    {currentTourist?.safetyScore || "87"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Safety Score</p>
+                </div>
+                <div className="text-center">
+                  <Badge className={getStatusColor(currentTourist?.status || "safe")} data-testid="badge-zone-status">
+                    {currentTourist?.status?.charAt(0).toUpperCase() + currentTourist?.status?.slice(1) || "Safe"}
+                  </Badge>
+                  <p className="text-sm text-muted-foreground mt-1">Current Zone</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Current Location Card */}
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="font-semibold mb-3">Current Location</h3>
+              <div className="flex items-center space-x-3">
+                <MapPin className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="font-medium" data-testid="text-current-location">
+                    {currentTourist?.currentLocation || "Calangute Beach, Goa"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Last updated: 2 minutes ago</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recent Alerts */}
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="font-semibold mb-3">Recent Alerts</h3>
+              <div className="space-y-3">
+                {alerts?.length ? (
+                  alerts.slice(0, 3).map((alert: Alert) => (
+                    <div
+                      key={alert.id}
+                      className={`flex items-start space-x-3 p-3 rounded-lg ${getSeverityColor(alert.severity)}`}
+                      data-testid={`alert-${alert.id}`}
+                    >
+                      <AlertTriangle className="h-5 w-5 mt-1" />
+                      <div>
+                        <p className="font-medium">{alert.type.charAt(0).toUpperCase() + alert.type.slice(1)} Alert</p>
+                        <p className="text-sm text-muted-foreground">{alert.description}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(alert.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-start space-x-3 p-3 bg-muted rounded-lg">
+                    <Info className="h-5 w-5 text-primary mt-1" />
+                    <div>
+                      <p className="font-medium">No recent alerts</p>
+                      <p className="text-sm text-muted-foreground">All systems are operating normally</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Emergency Contacts */}
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="font-semibold mb-3">Emergency Contacts</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span>Tourist Helpline</span>
+                  <Button variant="link" className="p-0 h-auto" data-testid="link-tourist-helpline">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    1363
+                  </Button>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Police Emergency</span>
+                  <Button variant="link" className="p-0 h-auto" data-testid="link-police-emergency">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    100
+                  </Button>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Medical Emergency</span>
+                  <Button variant="link" className="p-0 h-auto" data-testid="link-medical-emergency">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    108
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Map Tab */}
+      {activeTab === "map" && (
+        <div className="p-4 space-y-4" data-testid="content-map">
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="font-semibold mb-3">Live Location Map</h3>
+              <div className="h-96">
+                <TouristMap tourist={currentTourist} />
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Map Legend */}
+          <Card>
+            <CardContent className="p-4">
+              <h4 className="font-medium mb-3">Map Legend</h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-primary rounded-full"></div>
+                  <span>Your Location</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-success rounded-full"></div>
+                  <span>Safe Zone</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-warning rounded-full"></div>
+                  <span>Caution Zone</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-destructive rounded-full"></div>
+                  <span>High Risk Zone</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Profile Tab */}
+      {activeTab === "profile" && (
+        <div className="p-4 space-y-6" data-testid="content-profile">
+          {/* Digital Tourist ID */}
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="font-semibold mb-4">Digital Tourist ID</h3>
+              <div className="bg-gradient-to-r from-primary to-blue-600 text-primary-foreground p-4 rounded-lg">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <p className="text-sm opacity-90">Tourist ID</p>
+                    <p className="font-mono text-lg" data-testid="text-tourist-id">
+                      {currentTourist?.touristId || "TID-2024-001523"}
+                    </p>
+                  </div>
+                  <div className="text-2xl">🏷️</div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="opacity-90">Name</p>
+                    <p className="font-medium" data-testid="text-user-name">{user.name}</p>
+                  </div>
+                  <div>
+                    <p className="opacity-90">Nationality</p>
+                    <p className="font-medium" data-testid="text-nationality">{user.nationality || "Indian"}</p>
+                  </div>
+                  <div>
+                    <p className="opacity-90">Valid Until</p>
+                    <p className="font-medium" data-testid="text-valid-until">
+                      {currentTourist?.validUntil 
+                        ? new Date(currentTourist.validUntil).toLocaleDateString()
+                        : "Dec 30, 2024"
+                      }
+                    </p>
+                  </div>
+                  <div>
+                    <p className="opacity-90">Status</p>
+                    <p className="font-medium text-green-200">Active</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Trip Itinerary */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Trip Itinerary</h3>
+                <Button variant="outline" size="sm" data-testid="button-add-itinerary">
+                  Add
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {currentTourist?.itinerary?.length ? (
+                  currentTourist.itinerary.map((item, index) => (
+                    <div key={index} className="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <div className="flex-1">
+                        <p className="font-medium" data-testid={`itinerary-place-${index}`}>{item.place}</p>
+                        <p className="text-sm text-muted-foreground" data-testid={`itinerary-time-${index}`}>
+                          {item.date}, {item.time}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No itinerary items added yet</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Emergency Contacts */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Emergency Contacts</h3>
+                <Button variant="outline" size="sm" data-testid="button-edit-contacts">
+                  Edit
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {currentTourist?.emergencyContacts?.length ? (
+                  currentTourist.emergencyContacts.map((contact, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium" data-testid={`contact-name-${index}`}>{contact.name}</p>
+                        <p className="text-sm text-muted-foreground">{contact.relation}</p>
+                      </div>
+                      <Button variant="link" className="p-0 h-auto" data-testid={`contact-phone-${index}`}>
+                        <Phone className="h-4 w-4 mr-1" />
+                        {contact.phone}
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No emergency contacts added yet</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Settings */}
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="font-semibold mb-4">Settings</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span>Location Sharing</span>
+                  <Switch checked={locationSharing} onCheckedChange={setLocationSharing} />
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Push Notifications</span>
+                  <Switch defaultChecked />
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Emergency Auto-Share</span>
+                  <Switch defaultChecked />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
