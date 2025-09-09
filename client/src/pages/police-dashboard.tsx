@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -18,7 +21,9 @@ import {
   Filter,
   Bell,
   BarChart3,
-  Gauge
+  Gauge,
+  X,
+  Search
 } from "lucide-react";
 import PoliceMap from "@/components/police-map";
 import { apiRequest } from "@/lib/queryClient";
@@ -27,6 +32,12 @@ import type { Tourist, User as UserType, Alert } from "@shared/schema";
 export default function PoliceDashboard() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const [showIncidentModal, setShowIncidentModal] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [touristFilter, setTouristFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [safetyScoreFilter, setSafetyScoreFilter] = useState("0");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -92,6 +103,75 @@ export default function PoliceDashboard() {
       default:
         return "bg-muted/10 text-muted-foreground";
     }
+  };
+
+  // Filter tourists based on search criteria
+  const filteredTourists = tourists.filter((tourist: Tourist) => {
+    const matchesName = tourist.touristId?.toLowerCase().includes(touristFilter.toLowerCase()) || 
+                       `Tourist ${tourist.touristId || tourist.userId}`.toLowerCase().includes(touristFilter.toLowerCase());
+    const matchesStatus = statusFilter === "all" || tourist.status === statusFilter;
+    const matchesSafety = parseFloat(tourist.safetyScore || "0") >= parseFloat(safetyScoreFilter);
+    return matchesName && matchesStatus && matchesSafety;
+  });
+
+  // Export function
+  const exportTourists = (format: 'csv' | 'json') => {
+    const exportData = filteredTourists.map(tourist => ({
+      touristId: tourist.touristId,
+      name: `Tourist ${tourist.touristId || tourist.userId}`,
+      currentLocation: tourist.currentLocation,
+      safetyScore: tourist.safetyScore,
+      status: tourist.status,
+      lastUpdate: tourist.lastUpdate ? new Date(tourist.lastUpdate).toLocaleString() : "Unknown"
+    }));
+
+    if (format === 'csv') {
+      const headers = ['Tourist ID', 'Name', 'Current Location', 'Safety Score', 'Status', 'Last Updated'];
+      const csvContent = [
+        headers.join(','),
+        ...exportData.map(row => [
+          row.touristId,
+          row.name,
+          row.currentLocation,
+          row.safetyScore,
+          row.status,
+          row.lastUpdate
+        ].join(','))
+      ].join('\\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tourists-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } else {
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tourists-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+    
+    toast({
+      title: "Export Complete",
+      description: `${exportData.length} tourists exported as ${format.toUpperCase()}`,
+    });
+  };
+
+  // View incident details
+  const viewIncident = (alert: Alert) => {
+    setSelectedAlert(alert);
+    setShowIncidentModal(true);
+  };
+
+  // View alert on map
+  const viewAlertOnMap = (alert: Alert) => {
+    setSelectedAlert(alert);
+    setShowMapModal(true);
   };
 
   const getSeverityIcon = (severity: string) => {
@@ -263,7 +343,12 @@ export default function PoliceDashboard() {
                               {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : "Unknown"}
                             </p>
                           </div>
-                          <Button variant="link" size="sm" data-testid={`button-view-incident-${alert.id}`}>
+                          <Button 
+                            variant="link" 
+                            size="sm" 
+                            onClick={() => viewIncident(alert)}
+                            data-testid={`button-view-incident-${alert.id}`}
+                          >
                             View
                           </Button>
                         </div>
@@ -317,16 +402,86 @@ export default function PoliceDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Active Tourists</h2>
                 <div className="flex space-x-2">
-                  <Button variant="default" data-testid="button-export-tourists">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
-                  <Button variant="outline" data-testid="button-filter-tourists">
-                    <Filter className="h-4 w-4 mr-2" />
-                    Filter
-                  </Button>
+                  <Select onValueChange={(value) => exportTourists(value as 'csv' | 'json')}>
+                    <SelectTrigger asChild>
+                      <Button variant="default" data-testid="button-export-tourists">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export
+                      </Button>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="csv">Export as CSV</SelectItem>
+                      <SelectItem value="json">Export as JSON</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
+
+              {/* Filter Controls */}
+              <Card className="mb-6">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Search Tourist</label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Tourist ID or name..."
+                          value={touristFilter}
+                          onChange={(e) => setTouristFilter(e.target.value)}
+                          className="pl-9"
+                          data-testid="input-tourist-filter"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Status Filter</label>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger data-testid="select-status-filter">
+                          <SelectValue placeholder="All statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Statuses</SelectItem>
+                          <SelectItem value="safe">Safe</SelectItem>
+                          <SelectItem value="caution">Caution</SelectItem>
+                          <SelectItem value="alert">Alert</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Min Safety Score</label>
+                      <Select value={safetyScoreFilter} onValueChange={setSafetyScoreFilter}>
+                        <SelectTrigger data-testid="select-safety-filter">
+                          <SelectValue placeholder="Minimum score" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">All Scores</SelectItem>
+                          <SelectItem value="50">50+</SelectItem>
+                          <SelectItem value="70">70+</SelectItem>
+                          <SelectItem value="80">80+</SelectItem>
+                          <SelectItem value="90">90+</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-end">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setTouristFilter("");
+                          setStatusFilter("all");
+                          setSafetyScoreFilter("0");
+                        }}
+                        data-testid="button-clear-filters"
+                      >
+                        Clear Filters
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-sm text-muted-foreground">
+                    Showing {filteredTourists.length} of {tourists.length} tourists
+                  </div>
+                </CardContent>
+              </Card>
 
               <Card>
                 <CardContent className="p-0">
@@ -344,7 +499,7 @@ export default function PoliceDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {tourists.map((tourist: Tourist) => (
+                        {filteredTourists.map((tourist: Tourist) => (
                           <tr key={tourist.id} className="hover:bg-muted/50" data-testid={`tourist-row-${tourist.id}`}>
                             <td className="p-4 font-mono text-sm" data-testid={`tourist-id-${tourist.id}`}>
                               {tourist.touristId}
@@ -427,7 +582,12 @@ export default function PoliceDashboard() {
                           </div>
                         </div>
                         <div className="flex space-x-2">
-                          <Button variant="default" size="sm" data-testid={`button-view-map-${alert.id}`}>
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={() => viewAlertOnMap(alert)}
+                            data-testid={`button-view-map-${alert.id}`}
+                          >
                             View Map
                           </Button>
                           {alert.status === "active" && (
@@ -591,6 +751,152 @@ export default function PoliceDashboard() {
           )}
         </main>
       </div>
+
+      {/* Incident Details Modal */}
+      <Dialog open={showIncidentModal} onOpenChange={setShowIncidentModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Incident Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedAlert && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Alert ID</label>
+                  <p className="font-mono text-sm">{selectedAlert.id}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Tourist ID</label>
+                  <p className="font-mono text-sm">{selectedAlert.touristId}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Alert Type</label>
+                  <p className="capitalize">{selectedAlert.type}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Severity</label>
+                  <Badge className={selectedAlert.severity === 'critical' ? 'bg-destructive' : 'bg-warning'}>
+                    {selectedAlert.severity.toUpperCase()}
+                  </Badge>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <Badge className={selectedAlert.status === 'resolved' ? 'bg-success' : 'bg-destructive'}>
+                    {(selectedAlert.status || 'active').toUpperCase()}
+                  </Badge>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Triggered</label>
+                  <p className="text-sm">
+                    {selectedAlert.createdAt ? new Date(selectedAlert.createdAt).toLocaleString() : "Unknown"}
+                  </p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Location</label>
+                <p>{selectedAlert.location || "Unknown"}</p>
+                {selectedAlert.lat && selectedAlert.lng && (
+                  <p className="text-sm text-muted-foreground">
+                    Coordinates: {selectedAlert.lat}, {selectedAlert.lng}
+                  </p>
+                )}
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Description</label>
+                <p>{selectedAlert.description || "No additional details available"}</p>
+              </div>
+              
+              {selectedAlert.respondedBy && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Responded By</label>
+                  <p>Officer ID: {selectedAlert.respondedBy}</p>
+                </div>
+              )}
+              
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={() => viewAlertOnMap(selectedAlert)}
+                  data-testid="button-modal-view-map"
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  View on Map
+                </Button>
+                {selectedAlert.status === "active" && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => resolveAlertMutation.mutate({ alertId: selectedAlert.id, status: "resolved" })}
+                    disabled={resolveAlertMutation.isPending}
+                    data-testid="button-modal-resolve"
+                  >
+                    Resolve Alert
+                  </Button>
+                )}
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowIncidentModal(false)}
+                  data-testid="button-modal-close"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Map Modal */}
+      <Dialog open={showMapModal} onOpenChange={setShowMapModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              Alert Location Map
+            </DialogTitle>
+          </DialogHeader>
+          {selectedAlert && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div>
+                  <p className="font-medium">{selectedAlert.type.toUpperCase()} Alert</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedAlert.location || "Unknown location"}
+                  </p>
+                </div>
+                <Badge className={selectedAlert.severity === 'critical' ? 'bg-destructive' : 'bg-warning'}>
+                  {selectedAlert.severity}
+                </Badge>
+              </div>
+              
+              <div className="h-96 rounded-lg overflow-hidden border">
+                <PoliceMap 
+                  tourists={tourists} 
+                  alerts={[selectedAlert]} 
+                  centerOn={selectedAlert.lat && selectedAlert.lng ? {
+                    lat: parseFloat(selectedAlert.lat),
+                    lng: parseFloat(selectedAlert.lng)
+                  } : undefined}
+                  zoom={15}
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowMapModal(false)}
+                  data-testid="button-map-modal-close"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
