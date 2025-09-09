@@ -402,18 +402,16 @@ export default function PoliceDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Active Tourists</h2>
                 <div className="flex space-x-2">
-                  <Select onValueChange={(value) => exportTourists(value as 'csv' | 'json')}>
-                    <SelectTrigger asChild>
-                      <Button variant="default" data-testid="button-export-tourists">
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                      </Button>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="csv">Export as CSV</SelectItem>
-                      <SelectItem value="json">Export as JSON</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="relative">
+                    <Button 
+                      variant="default" 
+                      onClick={() => exportTourists('csv')}
+                      data-testid="button-export-tourists"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </Button>
+                  </div>
                 </div>
               </div>
 
