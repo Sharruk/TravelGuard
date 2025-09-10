@@ -156,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { touristId } = req.params;
       const { place, date, time, notes } = req.body;
       
-      const tourist = await storage.getTouristById(touristId);
+      const tourist = await storage.getTourist(touristId);
       if (!tourist) {
         return res.status(404).json({ error: "Tourist not found" });
       }
@@ -180,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { touristId } = req.params;
       const { emergencyContacts } = req.body;
       
-      const tourist = await storage.getTouristById(touristId);
+      const tourist = await storage.getTourist(touristId);
       if (!tourist) {
         return res.status(404).json({ error: "Tourist not found" });
       }

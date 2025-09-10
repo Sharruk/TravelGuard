@@ -87,10 +87,15 @@ export default function TouristDashboard() {
   // Mutations
   const addItineraryMutation = useMutation({
     mutationFn: async (data: z.infer<typeof itinerarySchema>) => {
-      return apiRequest(`/api/tourist/itinerary/${currentTourist.id}`, {
+      const response = await fetch(`/api/tourist/itinerary/${currentTourist.id}`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(data),
       });
+      if (!response.ok) throw new Error("Failed to add itinerary item");
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tourist/profile", user.id] });
@@ -105,10 +110,15 @@ export default function TouristDashboard() {
 
   const updateContactsMutation = useMutation({
     mutationFn: async (contacts: Array<{ name: string; phone: string; relation: string }>) => {
-      return apiRequest(`/api/tourist/contacts/${currentTourist.id}`, {
+      const response = await fetch(`/api/tourist/contacts/${currentTourist.id}`, {
         method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ emergencyContacts: contacts }),
       });
+      if (!response.ok) throw new Error("Failed to update emergency contacts");
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tourist/profile", user.id] });
