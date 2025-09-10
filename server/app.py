@@ -18,7 +18,7 @@ from pydantic import BaseModel, ValidationError
 import logging
 
 # Initialize Flask app
-app = Flask(__name__, static_folder='../dist/public', static_url_path='')
+app = Flask(__name__, static_folder='../client', static_url_path='')
 CORS(app)
 
 # Database configuration
@@ -554,6 +554,8 @@ def get_police_stats():
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'backend': 'flask'})
+
+# Frontend is handled by Express/Vite, so remove frontend routes from Flask
 
 # Initialize database and demo data
 def init_demo_data():
