@@ -4,18 +4,44 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { useQuery } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Home, Map, User, LogOut, MapPin, Phone, AlertTriangle, Info, ExternalLink, History } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { apiRequest } from "@/lib/queryClient";
+import { Shield, Home, Map, User, LogOut, MapPin, Phone, AlertTriangle, Info, ExternalLink, History, Plus, Edit, X } from "lucide-react";
 import TouristMap from "@/components/tourist-map";
 import PanicButton from "@/components/panic-button";
 import type { Tourist, User as UserType, Alert } from "@shared/schema";
+
+const itinerarySchema = z.object({
+  place: z.string().min(1, "Place is required"),
+  date: z.string().min(1, "Date is required"),
+  time: z.string().min(1, "Time is required"),
+  notes: z.string().optional(),
+});
+
+const emergencyContactSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  phone: z.string().min(10, "Valid phone number required"),
+  relation: z.string().min(1, "Relationship is required"),
+});
 
 export default function TouristDashboard() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [locationSharing, setLocationSharing] = useState(true);
+  const [showItineraryModal, setShowItineraryModal] = useState(false);
+  const [showContactsModal, setShowContactsModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<number | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const user = JSON.parse(localStorage.getItem("user") || "{}") as UserType;
   const storedTourist = JSON.parse(localStorage.getItem("tourist") || "{}") as Tourist;
