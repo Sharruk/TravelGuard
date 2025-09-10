@@ -38,6 +38,14 @@ export default function PoliceDashboard() {
   const [touristFilter, setTouristFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [safetyScoreFilter, setSafetyScoreFilter] = useState("0");
+  const [showCreateAlertModal, setShowCreateAlertModal] = useState(false);
+  const [newAlertForm, setNewAlertForm] = useState({
+    touristId: '',
+    type: 'safety',
+    severity: 'medium',
+    location: '',
+    description: ''
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -86,10 +94,80 @@ export default function PoliceDashboard() {
     },
   });
 
+  const createAlertMutation = useMutation({
+    mutationFn: async (alertData: typeof newAlertForm) => {
+      return apiRequest("POST", "/api/police/alerts", alertData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/police/alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/police/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/police/tourists"] });
+      toast({
+        title: "Alert Created",
+        description: "New alert has been successfully created.",
+      });
+      setShowCreateAlertModal(false);
+      setNewAlertForm({
+        touristId: '',
+        type: 'safety',
+        severity: 'medium',
+        location: '',
+        description: ''
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create alert. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("tourist");
     setLocation("/");
+  };
+
+  const handleCreateAlert = () => {
+    if (!newAlertForm.touristId || !newAlertForm.description) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+    createAlertMutation.mutate(newAlertForm);
+  };
+
+  const handleDownloadPDF = async () => {
+    try {
+      const response = await fetch('/api/police/reports/download');
+      if (!response.ok) throw new Error('Failed to download PDF');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tourist_safety_report_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Success",
+        description: "PDF report downloaded successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download PDF report.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -549,7 +627,11 @@ export default function PoliceDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Alerts & Incidents</h2>
                 <div className="flex space-x-2">
-                  <Button variant="destructive" data-testid="button-create-alert">
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => setShowCreateAlertModal(true)}
+                    data-testid="button-create-alert"
+                  >
                     <Bell className="h-4 w-4 mr-2" />
                     Create Alert
                   </Button>
@@ -706,7 +788,11 @@ export default function PoliceDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Reports & Analytics</h2>
                 <div className="flex space-x-2">
-                  <Button variant="default" data-testid="button-export-pdf">
+                  <Button 
+                    variant="default" 
+                    onClick={handleDownloadPDF}
+                    data-testid="button-export-pdf"
+                  >
                     <Download className="h-4 w-4 mr-2" />
                     Export PDF
                   </Button>
@@ -893,6 +979,108 @@ export default function PoliceDashboard() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Alert Modal */}
+      <Dialog open={showCreateAlertModal} onOpenChange={setShowCreateAlertModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Create New Alert
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Tourist ID</label>
+              <Select 
+                value={newAlertForm.touristId} 
+                onValueChange={(value) => setNewAlertForm({...newAlertForm, touristId: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select tourist" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tourists.map((tourist) => (
+                    <SelectItem key={tourist.id} value={tourist.id}>
+                      {tourist.touristId}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Alert Type</label>
+              <Select 
+                value={newAlertForm.type} 
+                onValueChange={(value) => setNewAlertForm({...newAlertForm, type: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="safety">Safety</SelectItem>
+                  <SelectItem value="medical">Medical</SelectItem>
+                  <SelectItem value="security">Security</SelectItem>
+                  <SelectItem value="weather">Weather</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Severity</label>
+              <Select 
+                value={newAlertForm.severity} 
+                onValueChange={(value) => setNewAlertForm({...newAlertForm, severity: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Location (Optional)</label>
+              <Input 
+                value={newAlertForm.location}
+                onChange={(e) => setNewAlertForm({...newAlertForm, location: e.target.value})}
+                placeholder="Alert location"
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Input 
+                value={newAlertForm.description}
+                onChange={(e) => setNewAlertForm({...newAlertForm, description: e.target.value})}
+                placeholder="Describe the alert"
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowCreateAlertModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleCreateAlert}
+                disabled={createAlertMutation.isPending}
+              >
+                {createAlertMutation.isPending ? 'Creating...' : 'Create Alert'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

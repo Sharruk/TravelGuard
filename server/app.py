@@ -448,7 +448,7 @@ def update_emergency_contacts(tourist_id):
             return jsonify({'error': 'Tourist not found'}), 404
         
         # Update emergency contacts
-        contacts = [contact.dict() for contact in data.emergencyContacts]
+        contacts = [contact.model_dump() for contact in data.emergencyContacts]
         tourist.emergency_contacts = contacts
         tourist.last_update = datetime.now()
         
