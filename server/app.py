@@ -10,12 +10,18 @@ from decimal import Decimal
 from typing import List, Dict, Any, Optional
 import json
 
-from flask import Flask, request, jsonify, send_from_directory, send_file
+from flask import Flask, request, jsonify, send_from_directory, send_file, Response
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from pydantic import BaseModel, ValidationError
 import logging
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from io import BytesIO
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='../client', static_url_path='')
@@ -74,6 +80,15 @@ class UpdateContactsRequest(BaseModel):
 class UpdateAlertRequest(BaseModel):
     status: str
     respondedBy: Optional[str] = None
+
+class CreateAlertRequest(BaseModel):
+    touristId: str
+    type: str
+    severity: str
+    location: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    description: Optional[str] = None
 
 class Coordinate(BaseModel):
     lat: float
@@ -390,7 +405,10 @@ def add_itinerary_item(tourist_id):
     try:
         data = ItineraryItem(**request.json)
         
-        tourist = Tourist.query.filter_by(tourist_id=tourist_id).first()
+        # Try both database ID and tourist_id
+        tourist = Tourist.query.filter_by(id=tourist_id).first()
+        if not tourist:
+            tourist = Tourist.query.filter_by(tourist_id=tourist_id).first()
         if not tourist:
             return jsonify({'error': 'Tourist not found'}), 404
         
@@ -422,7 +440,10 @@ def update_emergency_contacts(tourist_id):
     try:
         data = UpdateContactsRequest(**request.json)
         
-        tourist = Tourist.query.filter_by(tourist_id=tourist_id).first()
+        # Try both database ID and tourist_id
+        tourist = Tourist.query.filter_by(id=tourist_id).first()
+        if not tourist:
+            tourist = Tourist.query.filter_by(tourist_id=tourist_id).first()
         if not tourist:
             return jsonify({'error': 'Tourist not found'}), 404
         
@@ -548,6 +569,179 @@ def get_police_stats():
     except Exception as e:
         logger.error(f"Get police stats error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+# Create alert endpoint for police
+@app.route('/api/police/alerts', methods=['POST'])
+def create_alert():
+    try:
+        data = CreateAlertRequest(**request.json)
+        
+        # Find tourist by ID or tourist_id
+        tourist = Tourist.query.filter_by(id=data.touristId).first()
+        if not tourist:
+            tourist = Tourist.query.filter_by(tourist_id=data.touristId).first()
+        if not tourist:
+            return jsonify({'error': 'Tourist not found'}), 404
+        
+        alert = Alert(
+            tourist_id=tourist.id,
+            type=data.type,
+            severity=data.severity,
+            status='active',
+            location=data.location or tourist.current_location,
+            lat=Decimal(str(data.lat)) if data.lat else tourist.last_known_lat,
+            lng=Decimal(str(data.lng)) if data.lng else tourist.last_known_lng,
+            description=data.description
+        )
+        
+        db.session.add(alert)
+        
+        # Update tourist status based on severity
+        if data.severity in ['high', 'critical']:
+            tourist.status = 'alert'
+        elif data.severity == 'medium':
+            tourist.status = 'caution'
+        
+        tourist.last_update = datetime.now()
+        
+        db.session.commit()
+        return jsonify(alert.to_dict())
+    
+    except ValidationError as e:
+        return jsonify({'error': 'Invalid request'}), 400
+    except Exception as e:
+        logger.error(f"Create alert error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
+
+# PDF report generation
+@app.route('/api/police/reports/download', methods=['GET'])
+def download_report():
+    try:
+        # Get all data for the report
+        tourists = Tourist.query.all()
+        alerts = Alert.query.all()
+        zones = GeoZone.query.all()
+        
+        # Create PDF in memory
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+        story = []
+        
+        # Title
+        title = Paragraph("Tourist Safety Management System - Report", styles['Title'])
+        story.append(title)
+        story.append(Spacer(1, 20))
+        
+        # Current date
+        date_para = Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal'])
+        story.append(date_para)
+        story.append(Spacer(1, 20))
+        
+        # Summary section
+        summary_title = Paragraph("Summary", styles['Heading1'])
+        story.append(summary_title)
+        
+        summary_data = [
+            ['Metric', 'Count'],
+            ['Total Tourists', str(len(tourists))],
+            ['Active Alerts', str(len([a for a in alerts if a.status == 'active']))],
+            ['Total Geo Zones', str(len(zones))],
+            ['High Risk Zones', str(len([z for z in zones if z.type == 'restricted']))]
+        ]
+        
+        summary_table = Table(summary_data)
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 14),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(summary_table)
+        story.append(Spacer(1, 30))
+        
+        # Tourists section
+        tourists_title = Paragraph("Tourist Details", styles['Heading1'])
+        story.append(tourists_title)
+        
+        tourist_data = [['Tourist ID', 'Name', 'Safety Score', 'Status', 'Location']]
+        for tourist in tourists[:10]:  # Limit to first 10 for space
+            user = User.query.get(tourist.user_id)
+            tourist_data.append([
+                tourist.tourist_id,
+                user.name if user else 'Unknown',
+                tourist.safety_score or '0',
+                tourist.status or 'safe',
+                tourist.current_location or 'Unknown'
+            ])
+        
+        tourist_table = Table(tourist_data)
+        tourist_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(tourist_table)
+        story.append(Spacer(1, 30))
+        
+        # Alerts section
+        alerts_title = Paragraph("Active Alerts", styles['Heading1'])
+        story.append(alerts_title)
+        
+        active_alerts = [a for a in alerts if a.status == 'active']
+        alert_data = [['Alert ID', 'Type', 'Severity', 'Location', 'Created']]
+        for alert in active_alerts[:10]:  # Limit to first 10
+            alert_data.append([
+                alert.id[:8] + '...',
+                alert.type,
+                alert.severity,
+                alert.location or 'Unknown',
+                alert.created_at.strftime('%Y-%m-%d %H:%M') if alert.created_at else 'Unknown'
+            ])
+        
+        if len(alert_data) > 1:
+            alert_table = Table(alert_data)
+            alert_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(alert_table)
+        else:
+            no_alerts = Paragraph("No active alerts", styles['Normal'])
+            story.append(no_alerts)
+        
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        
+        # Return PDF as response
+        return Response(
+            buffer.getvalue(),
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'attachment; filename=tourist_safety_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+            }
+        )
+    
+    except Exception as e:
+        logger.error(f"PDF generation error: {str(e)}")
+        return jsonify({'error': 'Failed to generate report'}), 500
 
 # Health check endpoint
 @app.route('/health')
