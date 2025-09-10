@@ -150,6 +150,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Tourist itinerary and contacts management
+  app.post("/api/tourist/itinerary/:touristId", async (req, res) => {
+    try {
+      const { touristId } = req.params;
+      const { place, date, time, notes } = req.body;
+      
+      const tourist = await storage.getTouristById(touristId);
+      if (!tourist) {
+        return res.status(404).json({ error: "Tourist not found" });
+      }
+
+      const existingItinerary = tourist.itinerary || [];
+      const newItinerary = [...existingItinerary, { place, date, time, notes }];
+      
+      const updatedTourist = await storage.updateTourist(touristId, {
+        ...tourist,
+        itinerary: newItinerary,
+      });
+
+      res.json(updatedTourist);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to add itinerary item" });
+    }
+  });
+
+  app.put("/api/tourist/contacts/:touristId", async (req, res) => {
+    try {
+      const { touristId } = req.params;
+      const { emergencyContacts } = req.body;
+      
+      const tourist = await storage.getTouristById(touristId);
+      if (!tourist) {
+        return res.status(404).json({ error: "Tourist not found" });
+      }
+
+      const updatedTourist = await storage.updateTourist(touristId, {
+        ...tourist,
+        emergencyContacts,
+      });
+
+      res.json(updatedTourist);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update emergency contacts" });
+    }
+  });
+
   // Police routes
   app.get("/api/police/tourists", async (req, res) => {
     try {

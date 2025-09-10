@@ -64,6 +64,64 @@ export default function TouristDashboard() {
 
   const currentTourist = tourist || storedTourist || {} as Tourist;
 
+  // Form instances
+  const itineraryForm = useForm<z.infer<typeof itinerarySchema>>({
+    resolver: zodResolver(itinerarySchema),
+    defaultValues: {
+      place: "",
+      date: "",
+      time: "",
+      notes: "",
+    },
+  });
+
+  const contactForm = useForm<z.infer<typeof emergencyContactSchema>>({
+    resolver: zodResolver(emergencyContactSchema),
+    defaultValues: {
+      name: "",
+      phone: "",
+      relation: "",
+    },
+  });
+
+  // Mutations
+  const addItineraryMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof itinerarySchema>) => {
+      return apiRequest(`/api/tourist/itinerary/${currentTourist.id}`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tourist/profile", user.id] });
+      toast({ title: "Success", description: "Itinerary item added successfully" });
+      setShowItineraryModal(false);
+      itineraryForm.reset();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add itinerary item", variant: "destructive" });
+    },
+  });
+
+  const updateContactsMutation = useMutation({
+    mutationFn: async (contacts: Array<{ name: string; phone: string; relation: string }>) => {
+      return apiRequest(`/api/tourist/contacts/${currentTourist.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ emergencyContacts: contacts }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tourist/profile", user.id] });
+      toast({ title: "Success", description: "Emergency contacts updated successfully" });
+      setShowContactsModal(false);
+      setEditingContact(null);
+      contactForm.reset();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update emergency contacts", variant: "destructive" });
+    },
+  });
+
   const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("tourist");
@@ -460,7 +518,13 @@ export default function TouristDashboard() {
             <CardContent className="p-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Trip Itinerary</h3>
-                <Button variant="outline" size="sm" data-testid="button-add-itinerary">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowItineraryModal(true)}
+                  data-testid="button-add-itinerary"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
                   Add
                 </Button>
               </div>
@@ -491,7 +555,13 @@ export default function TouristDashboard() {
             <CardContent className="p-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Emergency Contacts</h3>
-                <Button variant="outline" size="sm" data-testid="button-edit-contacts">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowContactsModal(true)}
+                  data-testid="button-edit-contacts"
+                >
+                  <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>
               </div>
@@ -540,6 +610,205 @@ export default function TouristDashboard() {
           </Card>
         </div>
       )}
+
+      {/* Add Itinerary Modal */}
+      <Dialog open={showItineraryModal} onOpenChange={setShowItineraryModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Itinerary Item</DialogTitle>
+          </DialogHeader>
+          <Form {...itineraryForm}>
+            <form onSubmit={itineraryForm.handleSubmit((data) => addItineraryMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={itineraryForm.control}
+                name="place"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Place</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter destination" {...field} data-testid="input-itinerary-place" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={itineraryForm.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} data-testid="input-itinerary-date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={itineraryForm.control}
+                name="time"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Time</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} data-testid="input-itinerary-time" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={itineraryForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Additional notes..." {...field} data-testid="input-itinerary-notes" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  type="submit" 
+                  disabled={addItineraryMutation.isPending}
+                  data-testid="button-save-itinerary"
+                >
+                  {addItineraryMutation.isPending ? "Adding..." : "Add Item"}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowItineraryModal(false)}
+                  data-testid="button-cancel-itinerary"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Emergency Contacts Modal */}
+      <Dialog open={showContactsModal} onOpenChange={setShowContactsModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Emergency Contacts</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Existing Contacts */}
+            {currentTourist?.emergencyContacts?.map((contact, index) => (
+              <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <p className="font-medium">{contact.name}</p>
+                  <p className="text-sm text-muted-foreground">{contact.relation}</p>
+                  <p className="text-sm">{contact.phone}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const contacts = [...(currentTourist?.emergencyContacts || [])];
+                    contacts.splice(index, 1);
+                    updateContactsMutation.mutate(contacts);
+                  }}
+                  data-testid={`button-remove-contact-${index}`}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+
+            {/* Add New Contact Form */}
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">Add New Contact</h4>
+              <Form {...contactForm}>
+                <form onSubmit={contactForm.handleSubmit((data) => {
+                  const existingContacts = currentTourist?.emergencyContacts || [];
+                  const newContacts = [...existingContacts, data];
+                  updateContactsMutation.mutate(newContacts);
+                })} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={contactForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Contact name" {...field} data-testid="input-contact-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={contactForm.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone</FormLabel>
+                          <FormControl>
+                            <Input placeholder="+91 12345 67890" {...field} data-testid="input-contact-phone" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={contactForm.control}
+                    name="relation"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Relationship</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-contact-relation">
+                              <SelectValue placeholder="Select relationship" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="family">Family</SelectItem>
+                            <SelectItem value="friend">Friend</SelectItem>
+                            <SelectItem value="colleague">Colleague</SelectItem>
+                            <SelectItem value="emergency">Emergency Service</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex gap-2">
+                    <Button 
+                      type="submit" 
+                      disabled={updateContactsMutation.isPending}
+                      data-testid="button-add-contact"
+                    >
+                      {updateContactsMutation.isPending ? "Adding..." : "Add Contact"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </div>
+
+            <div className="flex gap-2 pt-4 border-t">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowContactsModal(false)}
+                data-testid="button-close-contacts"
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
