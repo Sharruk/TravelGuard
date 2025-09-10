@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import List, Dict, Any, Optional
 import json
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
@@ -18,7 +18,7 @@ from pydantic import BaseModel, ValidationError
 import logging
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../dist/public', static_url_path='')
 CORS(app)
 
 # Database configuration
@@ -548,6 +548,12 @@ def get_police_stats():
     except Exception as e:
         logger.error(f"Get police stats error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+# Health check endpoint
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({'status': 'healthy', 'backend': 'flask'})
 
 # Initialize database and demo data
 def init_demo_data():
