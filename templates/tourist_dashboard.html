@@ -324,6 +324,38 @@
             </div>
         </div>
 
+        <!-- Personal Emergency Contacts -->
+        <div class="card">
+            <div class="card-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold">Personal Emergency Contacts</h3>
+                    <button class="btn btn-outline btn-sm" data-testid="button-add-contact">
+                        <i data-lucide="plus" class="w-4 h-4 mr-1"></i>
+                        Add
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    {% if tourist.emergencyContacts %}
+                        {% for contact in tourist.emergencyContacts %}
+                        <div class="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+                            <div class="w-2 h-2 bg-primary rounded-full"></div>
+                            <div class="flex-1">
+                                <p class="font-medium" data-testid="contact-name-{{ loop.index0 }}">{{ contact.name }}</p>
+                                <p class="text-sm text-muted-foreground" data-testid="contact-phone-{{ loop.index0 }}">
+                                    {{ contact.phone }} - {{ contact.relation }}
+                                </p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="text-center py-8 text-muted-foreground">
+                        <p>No personal contacts added yet</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
         <!-- Trip Itinerary -->
         <div class="card">
             <div class="card-content">

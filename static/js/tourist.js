@@ -306,11 +306,63 @@ async function addItineraryItem(item) {
     }
 }
 
-// Add event listener for add itinerary button
+// Add emergency contact functionality
+function showAddContactModal() {
+    const name = prompt('Enter contact name:');
+    if (!name) return;
+    
+    const phone = prompt('Enter phone number:');
+    if (!phone) return;
+    
+    const relation = prompt('Enter relationship (e.g., spouse, friend, family):');
+    if (!relation) return;
+    
+    addEmergencyContact({ name, phone, relation });
+}
+
+async function addEmergencyContact(contact) {
+    try {
+        const tourist = storage.get('tourist');
+        if (!tourist || !tourist.id) {
+            throw new Error('Tourist information not found');
+        }
+        
+        // Get current contacts and add new one
+        const currentContacts = tourist.emergencyContacts || [];
+        const updatedContacts = [...currentContacts, contact];
+        
+        const response = await apiRequest('PUT', `/api/tourist/contacts/${tourist.id}`, {
+            emergencyContacts: updatedContacts
+        });
+        
+        toast.show('Emergency contact added successfully', 'success');
+        
+        // Update stored tourist data with response
+        if (response) {
+            storage.set('tourist', response);
+        }
+        
+        // Refresh page to show updated data
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+        
+    } catch (error) {
+        toast.show('Failed to add emergency contact', 'destructive');
+        console.error('Add contact error:', error);
+    }
+}
+
+// Add event listeners for buttons
 document.addEventListener('DOMContentLoaded', function() {
     const addItineraryBtn = document.querySelector('[data-testid="button-add-itinerary"]');
     if (addItineraryBtn) {
         addItineraryBtn.addEventListener('click', showAddItineraryModal);
+    }
+    
+    const addContactBtn = document.querySelector('[data-testid="button-add-contact"]');
+    if (addContactBtn) {
+        addContactBtn.addEventListener('click', showAddContactModal);
     }
 });
 
