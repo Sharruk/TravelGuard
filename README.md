@@ -22,34 +22,23 @@ A comprehensive real-time safety monitoring system for tourists and police autho
 
 ## Technology Stack
 
-### Backend
-- **Python Flask**: RESTful API server
+- **Python Flask**: Web framework and RESTful API server
+- **Jinja2**: Server-side templating engine
 - **SQLAlchemy**: Database ORM
 - **PostgreSQL**: Database
 - **ReportLab**: PDF generation
 - **Pydantic**: Data validation
-
-### Frontend
-- **React 18**: UI framework
-- **TypeScript**: Type-safe JavaScript
 - **Tailwind CSS**: Styling
-- **React Query**: Data fetching
 - **Leaflet**: Interactive maps
-- **Lucide React**: Icons
-
-### Development
-- **Vite**: Frontend build tool
-- **Node.js**: Development server
-- **Express**: API proxy server
+- **Vanilla JavaScript**: Client-side functionality
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+ 
 - Python 3.11+
-- PostgreSQL database
+- PostgreSQL database (or use Replit's built-in database)
 
-### Installation
+### Step-by-Step Installation
 
 1. **Clone the repository**
    ```bash
@@ -57,32 +46,37 @@ A comprehensive real-time safety monitoring system for tourists and police autho
    cd tourist-safety-system
    ```
 
-2. **Install dependencies**
+2. **Install Python dependencies**
    ```bash
-   # Install Node.js dependencies
-   npm install
-   
-   # Install Python dependencies  
    pip install -r requirements.txt
    ```
+   
+   Required packages:
+   - flask==3.1.2
+   - flask-sqlalchemy==3.1.1
+   - psycopg2-binary==2.9.10
+   - pydantic==2.11.7
+   - reportlab==4.4.3
+   - python-dotenv==1.1.1
 
 3. **Database Setup**
-   - Create a PostgreSQL database
-   - Update database connection in `server/app.py`
-   - The system will auto-create tables on first run
+   - If using Replit: The PostgreSQL database is automatically provided
+   - If running locally: Create a PostgreSQL database and update the connection string in `server/app.py`
+   - The system will automatically create all required tables on first run
 
 4. **Start the application**
    ```bash
-   npm run dev
+   python3 run_flask.py
    ```
    
-   This will start:
-   - Flask backend on port 5001
-   - Express proxy server on port 5000
-   - React frontend served through the proxy
+   Or run directly:
+   ```bash
+   cd server && python3 app.py
+   ```
 
 5. **Access the application**
    - Open http://localhost:5000 in your browser
+   - The Flask server handles both frontend and API requests
 
 ## Demo Credentials
 
@@ -122,40 +116,42 @@ A comprehensive real-time safety monitoring system for tourists and police autho
 
 ```
 tourist-safety-system/
-├── client/                 # React frontend
-│   ├── src/
-│   │   ├── components/    # Reusable components
-│   │   ├── pages/         # Page components
-│   │   └── ...
 ├── server/                # Python Flask backend
-│   ├── app.py            # Main Flask application
-│   ├── index.ts          # Express proxy server
-│   └── storage.ts        # Legacy storage utilities
-├── shared/               # Shared type definitions
-│   └── schema.ts
-├── package.json          # Node.js dependencies
+│   └── app.py            # Main Flask application
+├── templates/             # Jinja2 HTML templates
+│   ├── base.html         # Base template
+│   ├── login.html        # Login page
+│   └── tourist_dashboard.html # Tourist dashboard
+├── static/               # Static assets
+│   ├── css/
+│   │   └── style.css     # Tailwind CSS styles
+│   └── js/
+│       ├── common.js     # Common JavaScript utilities
+│       └── tourist.js    # Tourist dashboard functionality
 ├── requirements.txt      # Python dependencies
+├── run_flask.py         # Application startup script
 └── README.md
 ```
 
 ## Development
 
-### Backend Development
-The Flask backend (`server/app.py`) provides the REST API endpoints. It uses SQLAlchemy for database operations and includes:
+### Flask Application
+The main Flask application (`server/app.py`) provides:
 
-- User authentication
-- Tourist profile management  
-- Alert system
-- PDF report generation
-- Geographic data management
+- **Web Routes**: Serves HTML templates with Jinja2
+- **API Endpoints**: RESTful API for frontend interactions
+- **Database Operations**: SQLAlchemy ORM for data management
+- **Authentication**: Session-based user authentication
+- **PDF Generation**: ReportLab for generating safety reports
 
-### Frontend Development
-The React frontend is built with TypeScript and uses:
+### Frontend Architecture
+The frontend uses server-side rendering with:
 
-- React Query for data fetching
-- Tailwind CSS for styling
-- React Router for navigation
-- Leaflet for map functionality
+- **Jinja2 Templates**: Dynamic HTML generation
+- **Tailwind CSS**: Utility-first styling framework
+- **Vanilla JavaScript**: Client-side interactions and API calls
+- **Leaflet Maps**: Interactive location mapping
+- **Local Storage**: Client-side data persistence
 
 ### Database Schema
 The system uses the following main entities:
