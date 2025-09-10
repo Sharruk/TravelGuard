@@ -286,11 +286,16 @@ async function addItineraryItem(item) {
             throw new Error('Tourist information not found');
         }
         
-        await apiRequest('POST', `/api/tourist/itinerary/${tourist.id}`, item);
+        const response = await apiRequest('POST', `/api/tourist/itinerary/${tourist.id}`, item);
         
         toast.show('Itinerary item added successfully', 'success');
         
-        // Refresh page to show new item
+        // Update stored tourist data with response
+        if (response) {
+            storage.set('tourist', response);
+        }
+        
+        // Refresh page to show updated data
         setTimeout(() => {
             window.location.reload();
         }, 1000);

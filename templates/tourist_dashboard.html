@@ -360,5 +360,18 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+    // Pass data from Flask to JavaScript
+    window.userData = {{ user.to_dict()|tojson|safe if user else '{}' }};
+    window.touristData = {{ tourist.to_dict()|tojson|safe if tourist else '{}' }};
+    window.alertsData = {{ alerts|map(attribute='to_dict')|list|tojson|safe if alerts else '[]' }};
+    
+    // Store in localStorage for other scripts
+    if (typeof storage !== 'undefined') {
+        storage.set('user', window.userData);
+        storage.set('tourist', window.touristData);
+        storage.set('alerts', window.alertsData);
+    }
+</script>
 <script src="{{ url_for('static', filename='js/tourist.js') }}"></script>
 {% endblock %}
