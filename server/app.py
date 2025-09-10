@@ -603,7 +603,7 @@ def init_demo_data():
         # Create additional demo tourists
         tourist2 = Tourist(
             id="tourist-2",
-            user_id=str(uuid.uuid4()),
+            user_id="user-1",  # Use existing user ID
             tourist_id="TID-2024-001524",
             safety_score=Decimal('73.00'),
             current_location="Anjuna Beach",
@@ -619,7 +619,7 @@ def init_demo_data():
         
         tourist3 = Tourist(
             id="tourist-3",
-            user_id=str(uuid.uuid4()),
+            user_id="user-1",  # Use existing user ID  
             tourist_id="TID-2024-001525",
             safety_score=Decimal('91.00'),
             current_location="Old Goa",
