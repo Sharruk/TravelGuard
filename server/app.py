@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import List, Dict, Any, Optional
 import json
 
-from flask import Flask, request, jsonify, send_from_directory, send_file, Response
+from flask import Flask, request, jsonify, send_from_directory, send_file, Response, render_template, redirect, url_for, session, flash
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
@@ -24,7 +24,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from io import BytesIO
 
 # Initialize Flask app
-app = Flask(__name__, static_folder='../client', static_url_path='')
+app = Flask(__name__, template_folder='../templates', static_folder='../static')
 CORS(app)
 
 # Database configuration
@@ -221,12 +221,15 @@ class Alert(db.Model):
 def log_request_info():
     if request.path.startswith('/api'):
         start_time = datetime.now()
-        request.start_time = start_time
+        # Store in Flask g object instead of request
+        from flask import g
+        g.start_time = start_time
 
 @app.after_request  
 def log_response_info(response):
-    if hasattr(request, 'start_time') and request.path.startswith('/api'):
-        duration = (datetime.now() - request.start_time).total_seconds() * 1000
+    from flask import g
+    if hasattr(g, 'start_time') and request.path.startswith('/api'):
+        duration = (datetime.now() - g.start_time).total_seconds() * 1000
         log_line = f"{request.method} {request.path} {response.status_code} in {duration:.0f}ms"
         logger.info(log_line)
     return response
@@ -237,11 +240,123 @@ def handle_error(e):
     logger.error(f"Error: {str(e)}")
     return jsonify({'error': 'Internal server error'}), 500
 
+# Web Routes (serving HTML templates)
+@app.route('/')
+def index():
+    """Login page"""
+    return render_template('login.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def handle_login():
+    """Handle login form submission"""
+    if request.method == 'GET':
+        return render_template('login.html')
+    
+    try:
+        username = request.form.get('username')
+        password = request.form.get('password')
+        role = request.form.get('role')
+        
+        if not username or not password or not role:
+            flash('Please fill in all fields', 'error')
+            return render_template('login.html', username=username)
+        
+        # Authenticate user
+        user = User.query.filter_by(username=username).first()
+        if not user or user.password != password:
+            flash('Invalid credentials', 'error')
+            return render_template('login.html', username=username)
+        
+        if user.role != role:
+            flash(f'This account is not registered as a {role}', 'error')
+            return render_template('login.html', username=username)
+        
+        # Store user in session
+        session['user_id'] = user.id
+        session['user_role'] = user.role
+        
+        # Get tourist data if applicable
+        if user.role == 'tourist':
+            tourist = Tourist.query.filter_by(user_id=user.id).first()
+            if tourist:
+                session['tourist_id'] = tourist.id
+        
+        flash(f'Logged in as {user.name}', 'success')
+        
+        # Redirect to appropriate dashboard
+        if role == 'tourist':
+            return redirect(url_for('tourist_dashboard'))
+        else:
+            return redirect(url_for('police_dashboard'))
+            
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        flash('Login failed. Please try again.', 'error')
+        return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """Logout user"""
+    session.clear()
+    flash('You have been logged out', 'success')
+    return redirect(url_for('login'))
+
+@app.route('/tourist')
+def tourist_dashboard():
+    """Tourist dashboard page"""
+    if 'user_id' not in session or session.get('user_role') != 'tourist':
+        flash('Please log in as a tourist', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        user = User.query.get(session['user_id'])
+        tourist = Tourist.query.filter_by(user_id=user.id).first()
+        alerts = Alert.query.filter_by(tourist_id=tourist.id).all() if tourist else []
+        
+        return render_template('tourist_dashboard.html', 
+                             user=user, 
+                             tourist=tourist, 
+                             alerts=alerts)
+    except Exception as e:
+        logger.error(f"Tourist dashboard error: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return redirect(url_for('login'))
+
+@app.route('/police')
+def police_dashboard():
+    """Police dashboard page"""
+    if 'user_id' not in session or session.get('user_role') != 'police':
+        flash('Please log in as police', 'error')
+        return redirect(url_for('login'))
+    
+    try:
+        user = User.query.get(session['user_id'])
+        tourists = Tourist.query.all()
+        alerts = Alert.query.filter_by(status='active').all()
+        
+        # Calculate statistics
+        stats = {
+            'activeTourists': len(tourists),
+            'activeAlerts': len(alerts),
+            'highRiskZones': len(GeoZone.query.filter_by(type='restricted').all()),
+            'averageSafetyScore': f"{sum(float(t.safety_score or 0) for t in tourists) / len(tourists):.1f}" if tourists else "0.0"
+        }
+        
+        return render_template('police_dashboard.html', 
+                             user=user, 
+                             tourists=tourists, 
+                             alerts=alerts,
+                             stats=stats)
+    except Exception as e:
+        logger.error(f"Police dashboard error: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return redirect(url_for('login'))
+
 # Authentication endpoints
 @app.route('/api/auth/login', methods=['POST'])
-def login():
+def api_login():
     try:
-        data = LoginRequest(**request.json)
+        data = LoginRequest.model_validate(request.json)
         
         user = User.query.filter_by(username=data.username).first()
         if not user or user.password != data.password:
@@ -265,7 +380,7 @@ def login():
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     try:
-        data = UserRegistration(**request.json)
+        data = UserRegistration.model_validate(request.json)
         
         # Check if username exists
         existing_user = User.query.filter_by(username=data.username).first()
@@ -332,7 +447,7 @@ def get_tourist_profile(user_id):
 @app.route('/api/tourist/location/<tourist_id>', methods=['PUT'])
 def update_location(tourist_id):
     try:
-        data = UpdateLocationRequest(**request.json)
+        data = UpdateLocationRequest.model_validate(request.json)
         
         tourist = Tourist.query.filter_by(tourist_id=tourist_id).first()
         if not tourist:
@@ -403,7 +518,7 @@ def get_tourist_alerts(tourist_id):
 @app.route('/api/tourist/itinerary/<tourist_id>', methods=['POST'])
 def add_itinerary_item(tourist_id):
     try:
-        data = ItineraryItem(**request.json)
+        data = ItineraryItem.model_validate(request.json)
         
         # Try both database ID and tourist_id
         tourist = Tourist.query.filter_by(id=tourist_id).first()
@@ -438,7 +553,7 @@ def add_itinerary_item(tourist_id):
 @app.route('/api/tourist/contacts/<tourist_id>', methods=['PUT'])
 def update_emergency_contacts(tourist_id):
     try:
-        data = UpdateContactsRequest(**request.json)
+        data = UpdateContactsRequest.model_validate(request.json)
         
         # Try both database ID and tourist_id
         tourist = Tourist.query.filter_by(id=tourist_id).first()
@@ -486,7 +601,7 @@ def get_active_alerts():
 @app.route('/api/police/alert/<alert_id>', methods=['PUT'])
 def update_alert(alert_id):
     try:
-        data = UpdateAlertRequest(**request.json)
+        data = UpdateAlertRequest.model_validate(request.json)
         
         alert = Alert.query.get(alert_id)
         if not alert:
@@ -523,7 +638,7 @@ def get_geo_zones():
 @app.route('/api/geo-zones', methods=['POST'])
 def create_geo_zone():
     try:
-        data = GeoZoneRequest(**request.json)
+        data = GeoZoneRequest.model_validate(request.json)
         
         zone = GeoZone(
             name=data.name,
@@ -574,7 +689,7 @@ def get_police_stats():
 @app.route('/api/police/alerts', methods=['POST'])
 def create_alert():
     try:
-        data = CreateAlertRequest(**request.json)
+        data = CreateAlertRequest.model_validate(request.json)
         
         # Find tourist by ID or tourist_id
         tourist = Tourist.query.filter_by(id=data.touristId).first()
