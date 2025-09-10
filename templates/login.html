@@ -14,19 +14,17 @@
                 <p class="text-muted-foreground mt-2">Tourist Safety Management System</p>
             </div>
             
-            {% if error %}
-            <div class="alert alert-destructive mb-4">
-                {{ error }}
-            </div>
-            {% endif %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ 'destructive' if category == 'error' else 'success' if category == 'success' else 'warning' }} mb-4">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
             
-            {% if success %}
-            <div class="alert alert-success mb-4">
-                {{ success }}
-            </div>
-            {% endif %}
-            
-            <form method="POST" class="space-y-4" id="loginForm">
+            <form method="POST" action="{{ url_for('handle_login') }}" class="space-y-4" id="loginForm">
                 <div class="form-group">
                     <label for="username" class="form-label">Username</label>
                     <input

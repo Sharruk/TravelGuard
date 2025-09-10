@@ -310,7 +310,7 @@ def tourist_dashboard():
     
     try:
         user = User.query.get(session['user_id'])
-        tourist = Tourist.query.filter_by(user_id=user.id).first()
+        tourist = Tourist.query.filter_by(user_id=user.id).first() if user else None
         alerts = Alert.query.filter_by(tourist_id=tourist.id).all() if tourist else []
         
         return render_template('tourist_dashboard.html', 
@@ -388,14 +388,13 @@ def register():
             return jsonify({'error': 'Username already exists'}), 400
         
         # Create user
-        user = User(
-            username=data.username,
-            password=data.password,
-            role=data.role,
-            name=data.name,
-            nationality=data.nationality,
-            badge=data.badge
-        )
+        user = User()
+        user.username = data.username
+        user.password = data.password
+        user.role = data.role
+        user.name = data.name
+        user.nationality = data.nationality
+        user.badge = data.badge
         db.session.add(user)
         db.session.flush()  # Get user ID
         
@@ -404,19 +403,18 @@ def register():
         # If registering as tourist, create tourist profile
         if user.role == 'tourist':
             tourist_id = f"TID-{datetime.now().year}-{str(int(datetime.now().timestamp() * 1000))[-6:]}"
-            tourist = Tourist(
-                user_id=user.id,
-                tourist_id=tourist_id,
-                safety_score=Decimal('85.00'),
-                current_location="Goa, India",
-                last_known_lat=Decimal('15.2993'),
-                last_known_lng=Decimal('74.1240'),
-                location_sharing=True,
-                status='safe',
-                valid_until=datetime.now().replace(year=datetime.now().year + 1),  # 1 year validity
-                emergency_contacts=[],
-                itinerary=[]
-            )
+            tourist = Tourist()
+            tourist.user_id = user.id
+            tourist.tourist_id = tourist_id
+            tourist.safety_score = Decimal('85.00')
+            tourist.current_location = "Goa, India"
+            tourist.last_known_lat = Decimal('15.2993')
+            tourist.last_known_lng = Decimal('74.1240')
+            tourist.location_sharing = True
+            tourist.status = 'safe'
+            tourist.valid_until = datetime.now().replace(year=datetime.now().year + 1)  # 1 year validity
+            tourist.emergency_contacts = []
+            tourist.itinerary = []
             db.session.add(tourist)
             result['tourist'] = tourist.to_dict()
         
@@ -477,16 +475,15 @@ def panic_button(tourist_id):
             return jsonify({'error': 'Tourist not found'}), 404
         
         # Create alert
-        alert = Alert(
-            tourist_id=tourist.id,
-            type='panic',
-            severity='critical',
-            status='active',
-            location=tourist.current_location or 'Unknown',
-            lat=tourist.last_known_lat,
-            lng=tourist.last_known_lng,
-            description='Panic button activated'
-        )
+        alert = Alert()
+        alert.tourist_id = tourist.id
+        alert.type = 'panic'
+        alert.severity = 'critical'
+        alert.status = 'active'
+        alert.location = tourist.current_location or 'Unknown'
+        alert.lat = tourist.last_known_lat
+        alert.lng = tourist.last_known_lng
+        alert.description = 'Panic button activated'
         db.session.add(alert)
         
         # Update tourist status
@@ -640,12 +637,11 @@ def create_geo_zone():
     try:
         data = GeoZoneRequest.model_validate(request.json)
         
-        zone = GeoZone(
-            name=data.name,
-            type=data.type,
-            coordinates=[coord.dict() for coord in data.coordinates],
-            description=data.description
-        )
+        zone = GeoZone()
+        zone.name = data.name
+        zone.type = data.type
+        zone.coordinates = [coord.model_dump() for coord in data.coordinates]
+        zone.description = data.description
         
         db.session.add(zone)
         db.session.commit()
@@ -698,16 +694,15 @@ def create_alert():
         if not tourist:
             return jsonify({'error': 'Tourist not found'}), 404
         
-        alert = Alert(
-            tourist_id=tourist.id,
-            type=data.type,
-            severity=data.severity,
-            status='active',
-            location=data.location or tourist.current_location,
-            lat=Decimal(str(data.lat)) if data.lat else tourist.last_known_lat,
-            lng=Decimal(str(data.lng)) if data.lng else tourist.last_known_lng,
-            description=data.description
-        )
+        alert = Alert()
+        alert.tourist_id = tourist.id
+        alert.type = data.type
+        alert.severity = data.severity
+        alert.status = 'active'
+        alert.location = data.location or tourist.current_location
+        alert.lat = Decimal(str(data.lat)) if data.lat else tourist.last_known_lat
+        alert.lng = Decimal(str(data.lng)) if data.lng else tourist.last_known_lng
+        alert.description = data.description
         
         db.session.add(alert)
         
