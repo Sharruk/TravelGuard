@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Login - SafeTourism{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gradient-primary p-4">
+    <div class="card w-full max-w-md">
+        <div class="card-content">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="shield" class="w-8 h-8 text-primary-foreground"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-foreground">SafeTourism</h1>
+                <p class="text-muted-foreground mt-2">Tourist Safety Management System</p>
+            </div>
+            
+            {% if error %}
+            <div class="alert alert-destructive mb-4">
+                {{ error }}
+            </div>
+            {% endif %}
+            
+            {% if success %}
+            <div class="alert alert-success mb-4">
+                {{ success }}
+            </div>
+            {% endif %}
+            
+            <form method="POST" class="space-y-4" id="loginForm">
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input
+                        id="username"
+                        name="username"
+                        type="text"
+                        class="form-input"
+                        placeholder="Enter username"
+                        data-testid="input-username"
+                        value="{{ username or '' }}"
+                        required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        class="form-input"
+                        placeholder="Enter password"
+                        data-testid="input-password"
+                        required>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button
+                        type="submit"
+                        name="role"
+                        value="tourist"
+                        class="btn btn-primary flex-1"
+                        data-testid="button-tourist-login">
+                        <i data-lucide="user" class="w-4 h-4 mr-2"></i>
+                        Tourist Login
+                    </button>
+                    <button
+                        type="submit"
+                        name="role"
+                        value="police"
+                        class="btn btn-secondary flex-1"
+                        data-testid="button-police-login">
+                        <i data-lucide="badge" class="w-4 h-4 mr-2"></i>
+                        Police Login
+                    </button>
+                </div>
+            </form>
+            
+            <div class="relative mt-6">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="bg-card px-2 text-muted-foreground">Demo Mode</span>
+                </div>
+            </div>
+            
+            <div class="flex gap-2 mt-4">
+                <button
+                    type="button"
+                    class="btn btn-outline flex-1"
+                    data-testid="button-tourist-demo"
+                    onclick="loginDemo('tourist')">
+                    Tourist Demo
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-outline flex-1"
+                    data-testid="button-police-demo"
+                    onclick="loginDemo('police')">
+                    Police Demo
+                </button>
+            </div>
+            
+            <div class="text-sm text-muted-foreground text-center mt-4">
+                <p>Tourist Demo: Full mobile experience with safety features</p>
+                <p>Police Demo: Dashboard with real-time monitoring</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+    
+    // Demo login functionality
+    function loginDemo(role) {
+        const credentials = {
+            tourist: { username: 'priya.sharma', password: 'password123' },
+            police: { username: 'raj.desai', password: 'password123' }
+        };
+        
+        document.getElementById('username').value = credentials[role].username;
+        document.getElementById('password').value = credentials[role].password;
+        
+        // Set the role and submit
+        const form = document.getElementById('loginForm');
+        const roleInput = document.createElement('input');
+        roleInput.type = 'hidden';
+        roleInput.name = 'role';
+        roleInput.value = role;
+        form.appendChild(roleInput);
+        
+        setTimeout(() => form.submit(), 100);
+    }
+    
+    // Handle form submission with loading state
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        const submitButtons = this.querySelectorAll('button[type="submit"]');
+        submitButtons.forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner mr-2"></div>Logging in...';
+        });
+    });
+</script>
+{% endblock %}
